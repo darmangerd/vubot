@@ -28,7 +28,7 @@ def live_audio_to_text(model='base'):
 
     try:
         # Start recording from the default microphone at 16000 Hz
-        with sd.InputStream(samplerate=16000, channels=1, callback=live_rec_callback()):
+        with sd.InputStream(samplerate=16000, channels=1, callback=live_rec_callback):
             print("Recording started. Please speak into your microphone and stop the recording once done.")
             input("Press Enter to stop recording...")
 
