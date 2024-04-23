@@ -1,5 +1,6 @@
 # Ignore files in ./image
 image/*
+image/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
