@@ -1,0 +1,7 @@
+transformers==4.39.3
+pillow==10.3.0
+torch==2.2.2
+torchvision==0.17.2
+torchaudio==2.2.2
+opencv-python==4.9.0
+mediapipe==0.10.9
