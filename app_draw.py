@@ -3,6 +3,7 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 import cv2
 import time
+from speech.speech_recognition import real_time_transcribe
 
 # configure mediapipe
 MODEL_PATH = r"./model/gesture_recognizer.task"
@@ -11,6 +12,7 @@ GestureRecognizer = mp.tasks.vision.GestureRecognizer
 GestureRecognizerOptions = mp.tasks.vision.GestureRecognizerOptions
 GestureRecognizerResult = mp.tasks.vision.GestureRecognizerResult
 VisionRunningMode = mp.tasks.vision.RunningMode
+
 
 """
 This function is called when the gesture recognizer returns a result.
@@ -21,7 +23,7 @@ Args:
     output_image: The output image.
     timestamp_ms: The timestamp in milliseconds.
 """
-def print_result(result: GestureRecognizerResult, output_image: mp.Image, timestamp_ms: int):
+def print_result(result: GestureRecognizerResult, output_image: mp.Image, timestamp_ms: int, text):
     # Check if the hand landmarks are detected
     if result.hand_landmarks:
         # Get the gesture type, we assume the first gesture detected is the relevant one

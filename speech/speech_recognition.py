@@ -82,6 +82,7 @@ def real_time_transcribe():
                     result = model.transcribe(audio_np, temperature=0)
                     print(result['text'])
 
+
     except KeyboardInterrupt:
         print("Exiting...")
 
