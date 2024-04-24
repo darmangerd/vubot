@@ -5,7 +5,7 @@ import cv2
 import time
 
 # configure mediapipe
-MODEL_PATH = "./model/gesture_recognizer.task"
+MODEL_PATH = r"./model/gesture_recognizer.task"
 BaseOptions = mp.tasks.BaseOptions
 GestureRecognizer = mp.tasks.vision.GestureRecognizer
 GestureRecognizerOptions = mp.tasks.vision.GestureRecognizerOptions
