@@ -5,13 +5,23 @@ from transformers import DetrImageProcessor, DetrForObjectDetection
 import torch
 
 class HandGestureApp:
-    def __init__(self, model_path, debug=False):
-        self.model_path = model_path
-        self.index_coordinates = None
-        self.width = 0
-        self.height = 0
+    """
+    HandGestureApp class to run the application.
+    Combines MediaPipe gesture recognition with DETR object detection.
+
+    Args:
+        model_path (str): The path to the gesture recognition model.
+        debug (bool): Whether to run the application in debug mode. Default is False.
+        detection_threshold (float): The object detection threshold. Default is 0.8.
+    """
+    def __init__(self, model_path, debug=False, detection_threshold=0.8):
+        self.model_path = model_path # Path to the gesture recognition model
+        self.index_coordinates = None # Initialize index finger coordinates
+        self.width = 0 # Initialize frame width
+        self.height = 0 # Initialize frame height
         self.finger_detected = "No index finger detected"  # Initial text when no finger is detected
-        self.debug = debug
+        self.debug = debug # Debug mode flag
+        self.detection_threshold = detection_threshold # Object detection threshold
         
         # Initialize DETR model
         self.processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-50")
@@ -26,10 +36,26 @@ class HandGestureApp:
         )
         self.recognizer = mp.tasks.vision.GestureRecognizer.create_from_options(options)
 
+    
     def print_result(self, result, output_image, timestamp_ms):
+        """
+        Print the index tip coordinates and check if the point is within any detected object.
+        
+        Args:
+            result (mp.tasks.vision.GestureRecognizerResult): The result of the gesture recognizer.
+            output_image (mp.Image): The output image.
+            timestamp_ms (int): The timestamp in milliseconds.
+            
+        Returns:    
+            str: The result of the object detection.        
+        """
+
+        # Check if the hand landmarks are detected
         if result.hand_landmarks:
+            # Get the gesture type, we assume the first gesture detected is the relevant one
             gesture = result.gestures[0][0].category_name
             if gesture == 'Pointing_Up':
+                # Get the index tip coordinates (x, y), 8 is the index tip landmark
                 coordinates = (result.hand_landmarks[0][8].x, result.hand_landmarks[0][8].y)
                 self.index_coordinates = (int(coordinates[0] * self.width), int(coordinates[1] * self.height))
                 print(f'Index tip coordinates: {self.index_coordinates}')
@@ -39,7 +65,19 @@ class HandGestureApp:
         else:
             self.finger_detected = "No index finger detected"  # Maintain status when no finger is detected
 
+
     def check_point_within_objects(self, frame, frame_rgb):
+        """
+        Check if the index finger is pointing inside any detected object.
+        
+        Args:
+            frame (numpy.ndarray): The input frame.
+            frame_rgb (numpy.ndarray): The RGB frame.
+            
+        Returns:
+            str: The result of the object detection.
+        """
+    
         if self.index_coordinates is None:
             return "No index finger coordinates available."
         
@@ -49,19 +87,21 @@ class HandGestureApp:
         inputs = self.processor(images=frame_rgb, return_tensors="pt")
         outputs = self.model(**inputs)
 
-        # Decode predictions
+        # Decode predictions from DETR model
         target_sizes = torch.tensor([frame.shape[:2]])
         results = self.processor.post_process_object_detection(outputs, target_sizes=target_sizes)[0]
 
-
+        # Iterate over the detected objects
         for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
             label_name = self.model.config.id2label[label.item()]
 
-            # Skip the "person" label
+            # Skip the "person" label (avoid detecting the person holding the camera)
             if label_name == "person":
                 continue
             
-            if score > 0.8:
+            # Check if the object detection score is above a threshold
+            if score > self.detection_threshold:
+                # Convert bounding box to integer format
                 box = box.int().tolist()
 
                 # Draw bounding box (debug mode)
@@ -75,33 +115,43 @@ class HandGestureApp:
 
                     # Display the object name (debug mode)
                     if self.debug:
-                        # Put text with the detected object name
+                        # Put text with the detected object name and save a screenshot
                         cv2.putText(frame, label_name, (box[0], box[1] - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-
-                        # Save a screenshot when the index finger is pointing inside the object
                         cv2.imwrite(f'./image/screen_{time.time()}.png', frame)
 
-                    # Print and return the object name
+                    # Print and return the pointed object name
                     print(f"Index finger is pointing inside the object: {label_name}")
                     return f"Index finger pointing at: {label_name}"
+                
         return "Index finger pointing outside any detected object"
+    
 
     def run(self):
+        """
+        Run the application.
+        """
+
+        # Capture video from webcam
         cap = cv2.VideoCapture(0)
         self.width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         self.height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
         display_text = "Processing..."
 
+        # Initialize the timestamp (used for gesture recognition synchronization)
         start_time = time.time()
 
+        # Process each frame from the video capture
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
                 break
 
+            # Convert the frame from BGR color space to RGB, as required by MediaPipe
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            # Convert the RGB frame to a MediaPipe Image object
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
-            # Calculate the current timestamp in milliseconds
+
             current_time = time.time()
             elapsed_time = current_time - start_time
             frame_timestamp_ms = int(elapsed_time * 1000)
@@ -126,6 +176,8 @@ class HandGestureApp:
         cap.release()
         cv2.destroyAllWindows()
 
-# Usage
+
+
+# Run the HandGestureApp
 app = HandGestureApp("./model/gesture_recognizer.task", debug=True)
-# app.run()
+app.run()
