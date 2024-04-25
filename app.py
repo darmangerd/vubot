@@ -136,7 +136,7 @@ class HandGestureApp:
         """
 
         # Capture video from webcam
-        cap = cv2.VideoCapture(0)
+        cap = cv2.VideoCapture(0) # Change to 0 for default camera
         self.width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         self.height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
         display_text = "Processing..."
