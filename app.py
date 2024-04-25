@@ -39,7 +39,9 @@ class HandGestureApp:
     
     def print_result(self, result, output_image, timestamp_ms):
         """
-        Print the index tip coordinates and check if the point is within any detected object.
+        Callback function to process the result of the gesture recognizer, every time a result is received (every frame).
+        It prints the index tip coordinates and updates the status based on the detected finger. 
+        It also checks if the index finger is pointing inside any detected object.
         
         Args:
             result (mp.tasks.vision.GestureRecognizerResult): The result of the gesture recognizer.
@@ -71,8 +73,10 @@ class HandGestureApp:
         Check if the index finger is pointing inside any detected object.
         
         Args:
-            frame (numpy.ndarray): The input frame.
-            frame_rgb (numpy.ndarray): The RGB frame.
+            frame (numpy.ndarray): The input frame, it is used where you are working directly 
+                with OpenCV for display and drawing operations on the image.
+            frame_rgb (numpy.ndarray): The RGB frame, it is used to process the image 
+                with MediaPipe after conversion to ensure compatibility and accuracy of gesture recognition analyses.
             
         Returns:
             str: The result of the object detection.
@@ -157,6 +161,8 @@ class HandGestureApp:
             frame_timestamp_ms = int(elapsed_time * 1000)
 
             # Process gesture recognition
+            # This will trigger the print_result callback function in asynchronous mode
+            # The callback function will update the index finger coordinates and status
             self.recognizer.recognize_async(mp_image, frame_timestamp_ms)
 
             # Display finger detection status
