@@ -112,7 +112,7 @@ class HandGestureApp:
                 if self.debug:
                     cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2) 
                     score = score.item()
-                    cv2.putText(frame, f"{label_name}: {score:.2f}", (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    cv2.putText(frame, f"{label_name}: {score:.2f}", (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
                 # Check if the index finger is pointing inside the bounding box of a detected object
                 if box[0] <= index_x <= box[2] and box[1] <= index_y <= box[3]:
@@ -120,7 +120,7 @@ class HandGestureApp:
                     # Display the object name (debug mode)
                     if self.debug:
                         # Put text with the detected object name and save a screenshot
-                        cv2.putText(frame, label_name, (box[0], box[1] - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                        cv2.putText(frame, label_name, (box[0], box[1] - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
                         cv2.imwrite(f'./image/screen_{time.time()}.png', frame)
 
                     # Print and return the pointed object name
@@ -166,14 +166,14 @@ class HandGestureApp:
             self.recognizer.recognize_async(mp_image, frame_timestamp_ms)
 
             # Display finger detection status
-            cv2.putText(frame, self.finger_detected, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            cv2.putText(frame, self.finger_detected, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
 
             # Check for 'v' key press to activate object detection and potentially save a screenshot
             if cv2.waitKey(1) & 0xFF == ord('v'):
                 display_text = self.check_point_within_objects(frame, frame_rgb)
 
             # Display object detection text
-            cv2.putText(frame, display_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            cv2.putText(frame, display_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
 
             cv2.imshow('Frame', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
