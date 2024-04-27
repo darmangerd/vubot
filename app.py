@@ -32,12 +32,12 @@ class HandGestureApp:
             base_options=mp.tasks.BaseOptions(model_asset_path=self.model_path),
             running_mode=mp.tasks.vision.RunningMode.LIVE_STREAM,
             num_hands=1,
-            result_callback=self.print_result
+            result_callback=self.result_callback
         )
         self.recognizer = mp.tasks.vision.GestureRecognizer.create_from_options(options)
 
     
-    def print_result(self, result, output_image, timestamp_ms):
+    def result_callback(self, result, output_image, timestamp_ms):
         """
         Callback function to process the result of the gesture recognizer, every time a result is received (every frame).
         It prints the index tip coordinates and updates the status based on the detected finger. 
@@ -136,7 +136,7 @@ class HandGestureApp:
         """
 
         # Capture video from webcam
-        cap = cv2.VideoCapture(0) # Change to 0 for default camera
+        cap = cv2.VideoCapture(1) # Change to 0 for default camera
         self.width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         self.height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
         display_text = "Processing..."
@@ -161,19 +161,22 @@ class HandGestureApp:
             frame_timestamp_ms = int(elapsed_time * 1000)
 
             # Process gesture recognition
-            # This will trigger the print_result callback function in asynchronous mode
+            # This will trigger the result_callback function in asynchronous mode 
             # The callback function will update the index finger coordinates and status
             self.recognizer.recognize_async(mp_image, frame_timestamp_ms)
 
             # Display finger detection status
-            cv2.putText(frame, self.finger_detected, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
+            if self.finger_detected == "No index finger detected":
+                cv2.putText(frame, self.finger_detected, (5, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 250), 2)
+            else:
+                cv2.putText(frame, self.finger_detected, (5, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (100, 250, 30), 2)
 
             # Check for 'v' key press to activate object detection and potentially save a screenshot
             if cv2.waitKey(1) & 0xFF == ord('v'):
                 display_text = self.check_point_within_objects(frame, frame_rgb)
 
-            # Display object detection text
-            cv2.putText(frame, display_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
+            # Display object detection text 
+            cv2.putText(frame, display_text, (int(self.width/2) - 100, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
 
             cv2.imshow('Frame', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
