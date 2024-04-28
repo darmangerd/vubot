@@ -270,5 +270,5 @@ class HandGestureApp:
 
 
 # Run the HandGestureApp
-app = HandGestureApp("./model/gesture_recognizer.task", debug=True)
+app = HandGestureApp("./model/gesture_recognizer.task", debug=False)
 app.run()
