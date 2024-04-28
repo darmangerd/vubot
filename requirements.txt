@@ -5,4 +5,4 @@ torchvision==0.17.2
 torchaudio==2.2.2
 opencv-python
 mediapipe==0.10.9
-openai-whisper #20231117
+openai-whisper 
