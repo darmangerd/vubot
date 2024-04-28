@@ -3,6 +3,11 @@ import mediapipe as mp
 import time
 from transformers import DetrImageProcessor, DetrForObjectDetection
 import torch
+import whisper
+import threading
+import numpy as np
+import sounddevice as sd
+import queue
 
 class HandGestureApp:
     """
@@ -22,6 +27,7 @@ class HandGestureApp:
         self.finger_detected = "No index finger detected"  # Initial text when no finger is detected
         self.debug = debug # Debug mode flag
         self.detection_threshold = detection_threshold # Object detection threshold
+        self.trigger_object_detection = False  # Flag to trigger object detection
         
         # Initialize DETR model
         self.processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-50")
@@ -32,12 +38,78 @@ class HandGestureApp:
             base_options=mp.tasks.BaseOptions(model_asset_path=self.model_path),
             running_mode=mp.tasks.vision.RunningMode.LIVE_STREAM,
             num_hands=1,
-            result_callback=self.result_callback
+            result_callback=self.frame_callback
         )
         self.recognizer = mp.tasks.vision.GestureRecognizer.create_from_options(options)
 
+        # Load Whisper model
+        self.whisper_model = whisper.load_model("base")  # Load Whisper model
+
+    def live_audio_callback(self, indata, frames, time, status):
+        """
+        Live audio callback function to put microphone data into a queue.
+
+        Args:
+            indata (numpy.ndarray): The input audio data.
+            frames (int): The number of frames.
+            time (sounddevice.CallbackTimeInfo): The time information.
+            status (sounddevice.CallbackFlags): The callback flags.
+        """
+        if status:
+            print(status)
+        audio_queue.put(indata.copy())
+
+
+    def start_speech_recognition(self):
+        """
+        Start the speech recognition from the microphone until any target word is identified.
+        """
+
+        # Initialize the Whisper model
+        model = whisper.load_model("small")
+
+        # Define the sample rate and block size
+        sample_rate = 16000 # 16 kHz
+        block_size = 16000 * 3  # number of audio samples collected before the buffer is transcribed - 8000 processes every 0.5 s
+
+        # Create a queue to handle real time audio data
+        global audio_queue
+        audio_queue = queue.Queue()
+
+        try:
+            with sd.InputStream(samplerate=sample_rate, channels=1, callback=self.live_audio_callback, blocksize=block_size):
+                print("Real-time transcription started. Please speak into your microphone.")
+                while True:
+                    audio_chunk = audio_queue.get()
+                    if audio_chunk is not None:
+                        # Convert audio chunk to numpy array
+                        audio_np = np.concatenate(audio_chunk)
+                        # Transcribe audio
+                        result = model.transcribe(audio_np, temperature=0)
+
+                        # format the text
+                        text = result['text'].lower()
+                        text = text.replace(".", "")
+                        text = text.replace(",", "")
+                        text = text.replace("!", "")
+                        text = text.replace("?", "")
+                        text = text.replace("-", "")
+
+                        # check if "help what is this" is detected
+                        if "help identify" in text:
+                            self.trigger_object_detection = True
+                            print("Object detection triggered.")
+                            time.sleep(2)
+
+                        else:
+                            print(f"Speech recognition: {text}")
+                        
+        except Exception as e:
+            print(f"Error in speech recognition: {e}")
+
+
     
-    def result_callback(self, result, output_image, timestamp_ms):
+    def frame_callback(self, result, output_image, timestamp_ms):
         """
         Callback function to process the result of the gesture recognizer, every time a result is received (every frame).
         It prints the index tip coordinates and updates the status based on the detected finger. 
@@ -144,6 +216,12 @@ class HandGestureApp:
         # Initialize the timestamp (used for gesture recognition synchronization)
         start_time = time.time()
 
+        # Start the speech recognition thread
+        speech_thread = threading.Thread(target=self.start_speech_recognition, daemon=True)
+        speech_thread.start()
+        print("Speech recognition thread started.")
+
+
         # Process each frame from the video capture
         while cap.isOpened():
             ret, frame = cap.read()
@@ -161,7 +239,7 @@ class HandGestureApp:
             frame_timestamp_ms = int(elapsed_time * 1000)
 
             # Process gesture recognition
-            # This will trigger the result_callback function in asynchronous mode 
+            # This will trigger the frame_callback function in asynchronous mode 
             # The callback function will update the index finger coordinates and status
             self.recognizer.recognize_async(mp_image, frame_timestamp_ms)
 
@@ -170,6 +248,9 @@ class HandGestureApp:
                 cv2.putText(frame, self.finger_detected, (5, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 250), 2)
             else:
                 cv2.putText(frame, self.finger_detected, (5, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (100, 250, 30), 2)
+
+            if self.trigger_object_detection:
+                print("HERE -Triggering object detection...")
 
             # Check for 'v' key press to activate object detection and potentially save a screenshot
             if cv2.waitKey(1) & 0xFF == ord('v'):
