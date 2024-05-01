@@ -9,6 +9,7 @@ import numpy as np
 import sounddevice as sd
 import queue
 
+
 class HandGestureApp:
     """
     HandGestureApp class to run the application.
@@ -48,20 +49,8 @@ class HandGestureApp:
         # Load Whisper model
         self.whisper_model = whisper.load_model("small.en")  # Load Whisper model
 
-
-    def live_audio_callback(self, indata, frames, time, status):
-        """
-        Live audio callback function to put microphone data into a queue.
-
-        Args:
-            indata (numpy.ndarray): The input audio data.
-            frames (int): The number of frames.
-            time (sounddevice.CallbackTimeInfo): The time information.
-            status (sounddevice.CallbackFlags): The callback flags.
-        """
-        if status:
-            print(status)
-        audio_queue.put(indata.copy())
+        # Constant sentence to trigger actions
+        self.TARGET_OD_PHRASES = ["what is this", "help me what is this", "identify this"]
 
 
     def start_speech_recognition(self):
@@ -69,16 +58,35 @@ class HandGestureApp:
         Start the speech recognition from the microphone until any target word is identified.
         """
 
+
+        def live_audio_callback(indata, frames, time, status):
+            """
+            Live audio callback function to put microphone data into a queue.
+
+            Args:
+                indata (numpy.ndarray): The input audio data.
+                frames (int): The number of frames.
+                time (sounddevice.CallbackTimeInfo): The time information.
+                status (sounddevice.CallbackFlags): The callback flags.
+            """
+            if status:
+                print(status)
+            global audio_queue
+            audio_queue.put(indata.copy())
+
+        # Initialize the Whisper model
+        model = whisper.load_model("small.en")
+
         # Define the sample rate and block size
-        sample_rate = 16000 # 16 kHz
-        block_size = 16000  # number of audio samples collected before the buffer is transcribed - 8000 processes every 0.5 s
+        sample_rate = 16000
+        block_size = 16000 * 3  # number of audio samples collected before the buffer is transcribed - 8000 processes every 0.5 s
 
         # Create a queue to handle real time audio data
         global audio_queue
         audio_queue = queue.Queue()
 
         try:
-            with sd.InputStream(samplerate=sample_rate, channels=1, callback=self.live_audio_callback, blocksize=block_size):
+            with sd.InputStream(samplerate=sample_rate, channels=1, callback=live_audio_callback, blocksize=block_size):
                 print("Real-time transcription started. Please speak into your microphone.")
                 while self.running:
                     audio_chunk = audio_queue.get()
@@ -86,21 +94,25 @@ class HandGestureApp:
                         # Convert audio chunk to numpy array
                         audio_np = np.concatenate(audio_chunk)
                         # Transcribe audio
-                        result = self.whisper_model.transcribe(audio_np, temperature=0)
+                        result = model.transcribe(audio_np, temperature=0)
 
-                        # format the text
-                        text = result['text'].lower().translate(str.maketrans("", "", ".,!?-"))
+                        # Format the transcription
+                        result = result['text'].lower().strip()
+                        result = ''.join(e for e in result if e.isalnum() or e.isspace())
 
-                        if "what is this" in text :
-                            self.trigger_object_detection = True
-                            print("Object detection triggered.")
-                            time.sleep(2)
+                        if self.debug:
+                            print(f"Transcription: {result}")
 
-                        else:
-                            if self.debug:
-                                print(f"Speech recognition: {text}")
-
+                        if any(phrase in result for phrase in self.TARGET_OD_PHRASES):
+                            # lock to make sure only one thread is updating the trigger flag
+                            with threading.Lock():
+                                self.trigger_object_detection = True
+                                print("Triggering object detection...")
+                                # sleep to avoid multiple triggers
+                                time.sleep(2)
                         
+
+                        # Check if any of the target phrases are in the transcription    
         except Exception as e:
             print(f"Error in speech recognition: {e}")
 
@@ -129,7 +141,7 @@ class HandGestureApp:
                 # Get the index tip coordinates (x, y), 8 is the index tip landmark
                 coordinates = (result.hand_landmarks[0][8].x, result.hand_landmarks[0][8].y)
                 self.index_coordinates = (int(coordinates[0] * self.width), int(coordinates[1] * self.height))
-                print(f'Index tip coordinates: {self.index_coordinates}')
+                # print(f'Index tip coordinates: {self.index_coordinates}')
                 self.finger_detected = True 
             else:
                 self.finger_detected = False
@@ -199,13 +211,26 @@ class HandGestureApp:
         return "Index finger pointing outside any detected object"
     
 
+
     def run(self):
         """
         Run the application.
         """
 
+        if self.debug:
+            # print sounddevice info
+            print(sd.query_devices())
+
+        # Set the default input device (microphone)
+        sd.default.device = 0
+
+        # Start the speech recognition thread
+        speech_thread = threading.Thread(target=self.start_speech_recognition, daemon=True)
+        speech_thread.start()
+        print("Speech recognition thread started.")
+
         # Capture video from webcam
-        cap = cv2.VideoCapture(1) # Change to 0 for default camera
+        cap = cv2.VideoCapture(0) # Change to 0 for default camera
         self.width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         self.height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
         display_text = "Processing..."
@@ -213,14 +238,10 @@ class HandGestureApp:
         # Initialize the timestamp (used for gesture recognition synchronization)
         start_time = time.time()
 
-        # Start the speech recognition thread
-        speech_thread = threading.Thread(target=self.start_speech_recognition, daemon=True)
-        speech_thread.start()
-        print("Speech recognition thread started.")
-
+        print("Starting the application...")
 
         # Process each frame from the video capture
-        while cap.isOpened():
+        while cap.isOpened() and self.running:
             ret, frame = cap.read()
             if not ret:
                 break
@@ -231,6 +252,7 @@ class HandGestureApp:
             # Convert the RGB frame to a MediaPipe Image object
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
 
+            # Calculate the elapsed time in milliseconds (used for gesture recognition synchronization)
             current_time = time.time()
             elapsed_time = current_time - start_time
             frame_timestamp_ms = int(elapsed_time * 1000)
@@ -246,22 +268,26 @@ class HandGestureApp:
             else:
                 cv2.putText(frame, "No Index finger detected", (5, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 250), 2)
 
-            # Check for 'v' key press to activate object detection and potentially save a screenshot
-            if cv2.waitKey(1) & 0xFF == ord('i') or self.trigger_object_detection:
-                if self.debug:
-                    print("riggering object detection...")
-                display_text = self.check_point_within_objects(frame, frame_rgb)
-                self.trigger_object_detection = False
-
             # Display object detection text 
             cv2.putText(frame, display_text, (int(self.width/2) - 100, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
 
+            # Check for 'v' key press to activate object detection and potentially save a screenshot
+            if cv2.waitKey(1) & 0xFF == ord('i') or self.trigger_object_detection:
+                if self.debug:
+                    print("Triggering object detection...")
+                display_text = self.check_point_within_objects(frame, frame_rgb)
+                self.trigger_object_detection = False
+
+            # Display the frame 
             cv2.imshow('Frame', frame)
+
+            # Check for 'q' key press to exit the application
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 self.running = False  # Signal to stop the threads
                 break
 
 
+        print("Exiting the application...")
         # Clear all resources
         cap.release()
         cv2.destroyAllWindows()
@@ -270,5 +296,5 @@ class HandGestureApp:
 
 
 # Run the HandGestureApp
-app = HandGestureApp("./model/gesture_recognizer.task", debug=False)
+app = HandGestureApp("./model/gesture_recognizer.task", debug=True)
 app.run()
