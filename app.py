@@ -16,13 +16,13 @@ class HandGestureApp:
     Combines MediaPipe gesture recognition with DETR object detection.
 
     Args:
-        model_path (str): The path to the gesture recognition model.
+        model_gesture_path (str): The path to the gesture recognition model.
         debug (bool): Whether to run the application in debug mode. Default is False.
         detection_threshold (float): The object detection threshold. Default is 0.8.
     """
-    def __init__(self, model_path, debug=False, detection_threshold=0.8):
+    def __init__(self, model_gesture_path, debug=False, detection_threshold=0.8):
         # General parameters
-        self.model_path = model_path # Path to the gesture recognition model
+        self.model_gesture_path = model_gesture_path # Path to the gesture recognition model
         self.running = True # Initialize running flag
         # Gesture and Object Detection parameters
         self.index_coordinates = None # Initialize index finger coordinates
@@ -32,14 +32,15 @@ class HandGestureApp:
         self.debug = debug # Debug mode flag
         self.detection_threshold = detection_threshold # Object detection threshold
         self.trigger_object_detection = False  # Flag to trigger object detection
+        self.last_pointed_object = None  # Last detected object name
         
         # Initialize DETR model
         self.processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-50")
-        self.model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50")
+        self.model_DETR = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50")
 
         # Initialize MediaPipe gesture recognizer
         options = mp.tasks.vision.GestureRecognizerOptions(
-            base_options=mp.tasks.BaseOptions(model_asset_path=self.model_path),
+            base_options=mp.tasks.BaseOptions(model_asset_path=self.model_gesture_path),
             running_mode=mp.tasks.vision.RunningMode.LIVE_STREAM,
             num_hands=1,
             result_callback=self.frame_callback
@@ -170,15 +171,17 @@ class HandGestureApp:
 
         # Process the image for object detection
         inputs = self.processor(images=frame_rgb, return_tensors="pt")
-        outputs = self.model(**inputs)
+        outputs = self.model_DETR(**inputs)
 
         # Decode predictions from DETR model
         target_sizes = torch.tensor([frame.shape[:2]])
         results = self.processor.post_process_object_detection(outputs, target_sizes=target_sizes)[0]
 
+        pointed_object = None
+
         # Iterate over the detected objects
         for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
-            label_name = self.model.config.id2label[label.item()]
+            label_name = self.model_DETR.config.id2label[label.item()]
 
             # Skip the "person" label (avoid detecting the person holding the camera)
             if label_name == "person":
@@ -197,6 +200,7 @@ class HandGestureApp:
 
                 # Check if the index finger is pointing inside the bounding box of a detected object
                 if box[0] <= index_x <= box[2] and box[1] <= index_y <= box[3]:
+                    pointed_object = label_name
 
                     # Display the object name (debug mode)
                     if self.debug:
@@ -204,12 +208,57 @@ class HandGestureApp:
                         cv2.putText(frame, label_name, (box[0], box[1] - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
                         cv2.imwrite(f'./image/screen_{time.time()}.png', frame)
 
-                    # Print and return the pointed object name
-                    print(f"Index finger is pointing inside the object: {label_name}")
-                    return f"Index finger pointing at: {label_name}"
                 
-        return "Index finger pointing outside any detected object"
-    
+        if pointed_object is not None:
+            self.last_pointed_object = pointed_object
+            print(f"Index finger pointing at: {pointed_object}")    
+            return f"Index finger pointing at: {pointed_object}"
+        else:
+            print("Index finger pointing outside any detected object")
+            return "Index finger pointing outside any detected object"    
+
+
+    def capture_all_objects(self, frame, frame_rgb):
+        """
+        Capture all detected objects in the frame.
+        
+        Args:
+            frame (numpy.ndarray): The input frame, it is used where you are working directly 
+                with OpenCV for display and drawing operations on the image.
+            frame_rgb (numpy.ndarray): The RGB frame, it is used to process the image 
+                with MediaPipe after conversion to ensure compatibility and accuracy of gesture recognition analyses.
+        """
+
+        # Process the image for object detection
+        inputs = self.processor(images=frame_rgb, return_tensors="pt")
+        outputs = self.model_DETR(**inputs)
+
+        # Decode predictions from DETR model
+        target_sizes = torch.tensor([frame.shape[:2]])
+        results = self.processor.post_process_object_detection(outputs, target_sizes=target_sizes)[0]
+
+        object_counts = {}
+
+        # Iterate over the detected objects
+        for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
+            label_name = self.model_DETR.config.id2label[label.item()]
+
+            # Skip the "person" label (avoid detecting the person holding the camera)
+            if label_name == "person":
+                continue
+            
+            # Check if the object detection score is above a threshold
+            if score > self.detection_threshold:
+                if label_name in object_counts:
+                    object_counts[label_name] += 1
+                else:
+                    object_counts[label_name] = 1
+
+        # Convert the dictionary to a list of dictionaries
+        detected_objects = [{"object": obj, "count": count} for obj, count in object_counts.items()]
+
+        return detected_objects
+
 
 
     def run(self):
@@ -271,12 +320,19 @@ class HandGestureApp:
             # Display object detection text 
             cv2.putText(frame, display_text, (int(self.width/2) - 100, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
 
-            # Check for 'v' key press to activate object detection and potentially save a screenshot
+            # Check for 'i' key press to activate object detection and potentially save a screenshot
             if cv2.waitKey(1) & 0xFF == ord('i') or self.trigger_object_detection:
                 if self.debug:
                     print("Triggering object detection...")
                 display_text = self.check_point_within_objects(frame, frame_rgb)
                 self.trigger_object_detection = False
+
+            # Check for 'c' key press to capture all detected objects
+            if cv2.waitKey(1) & 0xFF == ord('c'):
+                detected_objects = self.capture_all_objects(frame, frame_rgb)
+                print("Detected objects:")
+                for obj in detected_objects:
+                    print(f"{obj['object']}: {obj['count']}")
 
             # Display the frame 
             cv2.imshow('Frame', frame)
