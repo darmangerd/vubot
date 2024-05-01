@@ -6,3 +6,4 @@ torchaudio==2.2.2
 opencv-python
 mediapipe==0.10.9
 openai-whisper 
+pyaudio
