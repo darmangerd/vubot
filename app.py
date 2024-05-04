@@ -29,10 +29,12 @@ class HandGestureApp:
         self.width = 0 # Initialize frame width
         self.height = 0 # Initialize frame height
         self.finger_detected = False  # Initialize finger detection status
+        self.close_fist_detected = False  # Initialize closed fist detection status
         self.debug = debug # Debug mode flag
         self.detection_threshold = detection_threshold # Object detection threshold
         self.trigger_object_detection = False  # Flag to trigger object detection
         self.last_pointed_object = None  # Last detected object name
+        self.trigger_all_objects_detection = False # Flag to trigger all objects detection
         
         # Initialize DETR model
         self.processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-50")
@@ -51,7 +53,8 @@ class HandGestureApp:
         self.whisper_model = whisper.load_model("small.en")  # Load Whisper model
 
         # Constant sentence to trigger actions
-        self.TARGET_OD_PHRASES = ["what is this", "help me what is this", "identify this"]
+        self.OD_POINTED_TRIGGERS = ["what is this", "help me what is this", "identify this"]
+        self.OD_ALL_OBJECTS_TRIGGERS = ["capture all objects", "capture all detected objects", "capture all objects in the frame"]
 
 
     def start_speech_recognition(self):
@@ -104,11 +107,19 @@ class HandGestureApp:
                         if self.debug:
                             print(f"Transcription: {result}")
 
-                        if any(phrase in result for phrase in self.TARGET_OD_PHRASES):
+                        if any(phrase in result for phrase in self.OD_POINTED_TRIGGERS):
                             # lock to make sure only one thread is updating the trigger flag
                             with threading.Lock():
                                 self.trigger_object_detection = True
                                 print("Triggering object detection...")
+                                # sleep to avoid multiple triggers
+                                time.sleep(2)
+
+                        elif any(phrase in result for phrase in self.OD_ALL_OBJECTS_TRIGGERS):
+                            # lock to make sure only one thread is updating the trigger flag
+                            with threading.Lock():
+                                self.trigger_all_objects_detection = True
+                                print("Capturing all detected objects...")
                                 # sleep to avoid multiple triggers
                                 time.sleep(2)
                         
@@ -138,16 +149,28 @@ class HandGestureApp:
         if result.hand_landmarks:
             # Get the gesture type, we assume the first gesture detected is the relevant one
             gesture = result.gestures[0][0].category_name
+
             if gesture == 'Pointing_Up':
                 # Get the index tip coordinates (x, y), 8 is the index tip landmark
                 coordinates = (result.hand_landmarks[0][8].x, result.hand_landmarks[0][8].y)
                 self.index_coordinates = (int(coordinates[0] * self.width), int(coordinates[1] * self.height))
                 # print(f'Index tip coordinates: {self.index_coordinates}')
                 self.finger_detected = True 
+                self.close_fist_detected = False
+
+            # Check if the gesture is a closed fist to trigger all objects detection
+            # we use the trigger_all_objects flag to avoid multiple triggers (it is reset when the gesture changes)
+            elif gesture == 'Closed_Fist' :
+                self.close_fist_detected = True
+                self.finger_detected = False
+
             else:
                 self.finger_detected = False
+                self.close_fist_detected = False
         else:
             self.finger_detected = False
+            self.close_fist_detected = False
+
 
 
     def check_point_within_objects(self, frame, frame_rgb):
@@ -314,8 +337,10 @@ class HandGestureApp:
             # Display finger detection status
             if self.finger_detected :
                 cv2.putText(frame, "Index finger detected", (5, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (100, 250, 30), 2)
-            else:
-                cv2.putText(frame, "No Index finger detected", (5, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 250), 2)
+            elif self.close_fist_detected :
+                cv2.putText(frame, "Closed fist detected", (5, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (250, 50, 50), 2)
+            else :
+                cv2.putText(frame, "No Gesture detected", (5, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 250), 2)
 
             # Display object detection text 
             cv2.putText(frame, display_text, (int(self.width/2) - 100, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
@@ -328,11 +353,14 @@ class HandGestureApp:
                 self.trigger_object_detection = False
 
             # Check for 'c' key press to capture all detected objects
-            if cv2.waitKey(1) & 0xFF == ord('c'):
+            if cv2.waitKey(1) & 0xFF == ord('c') or self.trigger_all_objects_detection:
+                if self.debug:
+                    print("Capturing all detected objects...")
                 detected_objects = self.capture_all_objects(frame, frame_rgb)
                 print("Detected objects:")
                 for obj in detected_objects:
                     print(f"{obj['object']}: {obj['count']}")
+                self.trigger_all_objects_detection = False
 
             # Display the frame 
             cv2.imshow('Frame', frame)
