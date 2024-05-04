@@ -54,7 +54,8 @@ class HandGestureApp:
 
         # Constant sentence to trigger actions
         self.OD_POINTED_TRIGGERS = ["what is this", "help me what is this", "identify this"]
-        self.OD_ALL_OBJECTS_TRIGGERS = ["capture all objects", "capture all detected objects", "capture all objects in the frame"]
+        self.OD_ALL_OBJECTS_TRIGGERS = ["capture all objects", "capture objects", "capture all"]
+        self.COUTNDOWN_TIME = 5  # Countdown time for capturing all objects
 
 
     def start_speech_recognition(self):
@@ -146,7 +147,7 @@ class HandGestureApp:
         """
 
         # Check if the hand landmarks are detected
-        if result.hand_landmarks:
+        if result.hand_landmarks :
             # Get the gesture type, we assume the first gesture detected is the relevant one
             gesture = result.gestures[0][0].category_name
 
@@ -231,14 +232,14 @@ class HandGestureApp:
                         cv2.putText(frame, label_name, (box[0], box[1] - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
                         cv2.imwrite(f'./image/screen_{time.time()}.png', frame)
 
-                
         if pointed_object is not None:
             self.last_pointed_object = pointed_object
-            print(f"Index finger pointing at: {pointed_object}")    
-            return f"Index finger pointing at: {pointed_object}"
+            if self.debug:
+                print(f"Index finger pointing at: {pointed_object}")
+            return f"{pointed_object}"
         else:
             print("Index finger pointing outside any detected object")
-            return "Index finger pointing outside any detected object"    
+            return "Pointing outside any detected object"    
 
 
     def capture_all_objects(self, frame, frame_rgb):
@@ -260,7 +261,8 @@ class HandGestureApp:
         target_sizes = torch.tensor([frame.shape[:2]])
         results = self.processor.post_process_object_detection(outputs, target_sizes=target_sizes)[0]
 
-        object_counts = {}
+        object_counts = {} # Initialize object counts
+        bounding_boxes = [] # Initialize bounding boxes
 
         # Iterate over the detected objects
         for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
@@ -272,15 +274,24 @@ class HandGestureApp:
             
             # Check if the object detection score is above a threshold
             if score > self.detection_threshold:
+
+                # Convert bounding 
+                box = box.int().tolist()
+
+                # save bounding box and label
+                bounding_boxes.append((box, label_name))
+
+                # Update the object counts
                 if label_name in object_counts:
                     object_counts[label_name] += 1
                 else:
                     object_counts[label_name] = 1
 
+
         # Convert the dictionary to a list of dictionaries
         detected_objects = [{"object": obj, "count": count} for obj, count in object_counts.items()]
 
-        return detected_objects
+        return detected_objects, bounding_boxes
 
 
 
@@ -305,7 +316,6 @@ class HandGestureApp:
         cap = cv2.VideoCapture(0) # Change to 0 for default camera
         self.width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         self.height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-        display_text = "Processing..."
 
         # Initialize the timestamp (used for gesture recognition synchronization)
         start_time = time.time()
@@ -336,31 +346,56 @@ class HandGestureApp:
 
             # Display finger detection status
             if self.finger_detected :
-                cv2.putText(frame, "Index finger detected", (5, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (100, 250, 30), 2)
+                cv2.putText(frame, "Index finger detected", (5, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (100, 250, 30), thickness=3)
             elif self.close_fist_detected :
-                cv2.putText(frame, "Closed fist detected", (5, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (250, 50, 50), 2)
+                cv2.putText(frame, "Closed fist detected", (5, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (250, 50, 50), thickness=3)
             else :
-                cv2.putText(frame, "No Gesture detected", (5, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 250), 2)
+                cv2.putText(frame, "No Gesture detected", (5, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 250), thickness=3)
 
-            # Display object detection text 
-            cv2.putText(frame, display_text, (int(self.width/2) - 100, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
+
+            # Display the last pointed object
+            if self.last_pointed_object is not None:
+                cv2.putText(frame, f"Last pointed object: {self.last_pointed_object}", (int(self.width/2) - 150, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), thickness=4)
+            else:
+                cv2.putText(frame, "Did not point at any object", (int(self.width/2) - 150, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), thickness=3)
+
 
             # Check for 'i' key press to activate object detection and potentially save a screenshot
             if cv2.waitKey(1) & 0xFF == ord('i') or self.trigger_object_detection:
                 if self.debug:
                     print("Triggering object detection...")
-                display_text = self.check_point_within_objects(frame, frame_rgb)
+                self.check_point_within_objects(frame, frame_rgb)
                 self.trigger_object_detection = False
 
             # Check for 'c' key press to capture all detected objects
-            if cv2.waitKey(1) & 0xFF == ord('c') or self.trigger_all_objects_detection:
-                if self.debug:
-                    print("Capturing all detected objects...")
-                detected_objects = self.capture_all_objects(frame, frame_rgb)
+            if cv2.waitKey(1) & 0xFF == ord('c') or self.trigger_all_objects_detection:                
+                detected_objects, bounding_boxes = self.capture_all_objects(frame, frame_rgb)
                 print("Detected objects:")
                 for obj in detected_objects:
                     print(f"{obj['object']}: {obj['count']}")
+
                 self.trigger_all_objects_detection = False
+
+                # Drawing bounding boxes and labels on the frame
+                for box, label in bounding_boxes:
+                    cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)
+                    cv2.putText(frame, label, (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+
+                # Start the countdown
+                for i in range(self.COUTNDOWN_TIME, 0, -1):
+                    # Create a copy of the frame with bounding boxes drawn
+                    frame_with_boxes = frame.copy()
+
+                    # Draw the countdown text
+                    text = f"{i}"
+                    cv2.putText(frame_with_boxes, text, (int(self.width/2), int(self.height/2)),
+                                cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 235, 255), thickness=4)
+
+                    cv2.imshow('Frame', frame_with_boxes)
+
+                    # Wait for 1 second
+                    cv2.waitKey(1000)
+
 
             # Display the frame 
             cv2.imshow('Frame', frame)
