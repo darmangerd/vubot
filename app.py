@@ -112,7 +112,7 @@ class HandGestureApp:
                             # lock to make sure only one thread is updating the trigger flag
                             with threading.Lock():
                                 self.trigger_object_detection = True
-                                print("Triggering object detection...")
+                                print("Heard Trigger phrase for object detection...")
                                 # sleep to avoid multiple triggers
                                 time.sleep(2)
 
@@ -120,12 +120,11 @@ class HandGestureApp:
                             # lock to make sure only one thread is updating the trigger flag
                             with threading.Lock():
                                 self.trigger_all_objects_detection = True
-                                print("Capturing all detected objects...")
+                                print("Heard Trigger phrase for all objects detection...")
                                 # sleep to avoid multiple triggers
                                 time.sleep(2)
                         
 
-                        # Check if any of the target phrases are in the transcription    
         except Exception as e:
             print(f"Error in speech recognition: {e}")
 
@@ -234,12 +233,11 @@ class HandGestureApp:
 
         if pointed_object is not None:
             self.last_pointed_object = pointed_object
-            if self.debug:
-                print(f"Index finger pointing at: {pointed_object}")
-            return f"{pointed_object}"
+            print(f"Index finger pointing at: {pointed_object}")
+            return pointed_object
         else:
             print("Index finger pointing outside any detected object")
-            return "Pointing outside any detected object"    
+            return None
 
 
     def capture_all_objects(self, frame, frame_rgb):
@@ -360,21 +358,24 @@ class HandGestureApp:
                 cv2.putText(frame, "Did not point at any object", (int(self.width/2) - 150, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), thickness=3)
 
 
-            # Check for 'i' key press to activate object detection and potentially save a screenshot
-            if cv2.waitKey(1) & 0xFF == ord('i') or self.trigger_object_detection:
-                if self.debug:
-                    print("Triggering object detection...")
+            # check if conditions are met to trigger object detection
+            if self.trigger_object_detection and self.finger_detected:
+                print("Triggering object detection...")
                 self.check_point_within_objects(frame, frame_rgb)
-                self.trigger_object_detection = False
+                
 
-            # Check for 'c' key press to capture all detected objects
-            if cv2.waitKey(1) & 0xFF == ord('c') or self.trigger_all_objects_detection:                
+            # check if conditions are met to trigger all objects detection
+            if self.trigger_all_objects_detection and self.close_fist_detected:             
                 detected_objects, bounding_boxes = self.capture_all_objects(frame, frame_rgb)
+
+                if detected_objects is None:
+                    print("No objects detected.")
+                    continue
+
                 print("Detected objects:")
                 for obj in detected_objects:
                     print(f"{obj['object']}: {obj['count']}")
 
-                self.trigger_all_objects_detection = False
 
                 # Drawing bounding boxes and labels on the frame
                 for box, label in bounding_boxes:
@@ -399,6 +400,10 @@ class HandGestureApp:
 
             # Display the frame 
             cv2.imshow('Frame', frame)
+
+            # Reset the trigger flags if they were activated
+            self.trigger_all_objects_detection = False
+            self.trigger_object_detection = False
 
             # Check for 'q' key press to exit the application
             if cv2.waitKey(1) & 0xFF == ord('q'):
