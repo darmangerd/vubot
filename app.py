@@ -389,7 +389,30 @@ class HandGestureApp:
                 # Drawing bounding boxes and labels on the frame
                 for box, label in bounding_boxes:
                     cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)
-                    cv2.putText(frame, label, (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+
+                    # Calculate text size and position for checkingn if it goes beyond the image borders
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    text_scale = 0.9
+                    thickness = 2
+                    (text_width, text_height), _ = cv2.getTextSize(label, font, text_scale, thickness)
+
+                    # Position the text above the bounding box, adjusting as needed
+                    text_x = box[0]
+                    text_y = box[1] - 10  # default position above the bounding box
+
+                    # Ensure the text doesn't go beyond any image borders 
+                    if text_x < 0:
+                        text_x = 0
+
+                    if text_y < text_height:
+                        text_y = box[1] + text_height + 10
+
+                    if text_x + text_width > frame.shape[1]:
+                        text_x = frame.shape[1] - text_width
+
+                    # Draw the label text
+                    cv2.putText(frame, label, (text_x, text_y), font, text_scale, (0, 255, 0), thickness)
+
 
                 # Start the countdown
                 for i in range(self.COUTNDOWN_TIME, 0, -1):
