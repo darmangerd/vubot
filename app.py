@@ -56,6 +56,9 @@ class HandGestureApp:
         # Constant sentence to trigger actions
         self.OD_POINTED_TRIGGERS = ["what is this", "help me what is this", "identify this"]
         self.OD_ALL_OBJECTS_TRIGGERS = ["capture all objects", "capture objects", "capture all"]
+        self.POINTED_COLOR_TRIGGER = "what color is this", "what color is that"
+        self.QUESTION_TRIGGER = "help is it", "help is this", "help me is that"
+        self.QUESTION_COLOR_TRIGGER = "what color is this", "what is the color of this", "what color is that"
         self.COUTNDOWN_TIME = 5  # Countdown time for capturing all objects
 
 
