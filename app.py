@@ -35,7 +35,8 @@ class HandGestureApp:
         self.trigger_object_detection = False  # Flag to trigger object detection
         self.last_pointed_object = None  # Last detected object name
         self.trigger_all_objects_detection = False # Flag to trigger all objects detection
-        
+        self.previous_transcription = ""  # Variable to store the previous transcription
+
         # Initialize DETR model
         self.processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-50")
         self.model_DETR = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50")
@@ -102,27 +103,35 @@ class HandGestureApp:
                         result = model.transcribe(audio_np, temperature=0)
 
                         # Format the transcription
-                        result = result['text'].lower().strip()
-                        result = ''.join(e for e in result if e.isalnum() or e.isspace())
+                        current_transcription = result['text'].lower().strip()
+                        current_transcription = ''.join(e for e in current_transcription if e.isalnum() or e.isspace())
 
                         if self.debug:
-                            print(f"Transcription: {result}")
+                            print(f"Transcription: {current_transcription}")
 
-                        if any(phrase in result for phrase in self.OD_POINTED_TRIGGERS):
-                            # lock to make sure only one thread is updating the trigger flag
+                        # Combine the previous and current transcriptions for better handling user speech
+                        combined_transcription = f"{self.previous_transcription} {current_transcription}".strip()
+
+                        if any(phrase in combined_transcription for phrase in self.OD_POINTED_TRIGGERS):
+                            # Lock to make sure only one thread is updating the trigger flag
                             with threading.Lock():
                                 self.trigger_object_detection = True
                                 print("Heard Trigger phrase for object detection...")
-                                # sleep to avoid multiple triggers
+                                # Sleep and reset text to avoid multiple triggers
                                 time.sleep(2)
+                                self.current_transcription = ""
 
-                        elif any(phrase in result for phrase in self.OD_ALL_OBJECTS_TRIGGERS):
+                        elif any(phrase in combined_transcription for phrase in self.OD_ALL_OBJECTS_TRIGGERS):
                             # lock to make sure only one thread is updating the trigger flag
                             with threading.Lock():
                                 self.trigger_all_objects_detection = True
                                 print("Heard Trigger phrase for all objects detection...")
-                                # sleep to avoid multiple triggers
+                                # Sleep and reset text to avoid multiple triggers
                                 time.sleep(2)
+                                self.current_transcription = ""
+
+                        # Update the previous transcription
+                        self.previous_transcription = current_transcription
                         
 
         except Exception as e:
