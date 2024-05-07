@@ -22,24 +22,22 @@ class HandGestureApp:
     """
     def __init__(self, model_gesture_path, debug=False, detection_threshold=0.8):
         # General parameters
-        self.model_gesture_path = model_gesture_path # Path to the gesture recognition model
-        self.running = True # Initialize running flag
+        self.model_gesture_path = model_gesture_path  # Path to the gesture recognition model
+        self.running = True  # Initialize running flag
         # Gesture and Object Detection parameters
-        self.index_coordinates = None # Initialize index finger coordinates
-        # TODO: add middle finger coordinates
-        self.middle_finger_coordinates = None
-        self.width = 0 # Initialize frame width
-        self.height = 0 # Initialize frame height
+        self.index_coordinates = None  # Initialize index finger coordinates
+        self.middle_finger_coordinates = None  # Initialize middle finger coordinates
+        self.width = 0  # Initialize frame width
+        self.height = 0  # Initialize frame height
         self.finger_detected = False  # Initialize finger detection status
         self.close_fist_detected = False  # Initialize closed fist detection status
-        # TODO: detect victory gesture
-        self.victory_detected = False
-        # TODO: add color
-        self.color = None
-        self.debug = debug # Debug mode flag
-        self.detection_threshold = detection_threshold # Object detection threshold
+        self.victory_detected = False  # Initialize victory gesture detection status
+        self.debug = debug  # Debug mode flag
+        self.detection_threshold = detection_threshold  # Object detection threshold
         self.trigger_object_detection = False  # Flag to trigger object detection
+        self.trigger_color_detection = False  # Flag to trigger color detection
         self.last_pointed_object = None  # Last detected object name
+        self.last_pointed_color = None  # Last detected object color
         self.trigger_all_objects_detection = False # Flag to trigger all objects detection
         self.previous_transcription = ""  # Variable to store the previous transcription
 
@@ -68,9 +66,9 @@ class HandGestureApp:
         # self.QUESTION_COLOR_TRIGGER = "what color is this", "what is the color of this", "what color is that"
         # self.COUNTDOWN_TIME = 5  # Countdown time for capturing all objects
 
-        self.OD_POINTED_TRIGGERS = ["object"]
-        self.OD_ALL_OBJECTS_TRIGGERS = ["highlight objects"]
-        self.POINTED_COLOR_TRIGGER = ["color", "colour"]
+        self.OD_POINTED_TRIGGERS = ["help object"]
+        self.OD_ALL_OBJECTS_TRIGGERS = ["help highlight objects"]
+        self.POINTED_COLOR_TRIGGER = ["help color", "help colour"]
         self.QUESTION_TRIGGER = "help"
         self.QUESTION_COLOR_TRIGGER = "help"
         self.COUNTDOWN_TIME = 5  # Countdown time for capturing all objects
@@ -146,6 +144,15 @@ class HandGestureApp:
                                 time.sleep(2)
                                 self.current_transcription = ""
 
+                        elif any(phrase in combined_transcription for phrase in self.POINTED_COLOR_TRIGGER):
+                            # lock to make sure only one thread is updating the trigger flag
+                            with threading.Lock():
+                                self.trigger_color_detection = True
+                                print("Heard Trigger phrase for color detection...")
+                                # Sleep and reset text to avoid multiple triggers
+                                time.sleep(2)
+                                self.current_transcription = ""
+
                         # Update the previous transcription
                         self.previous_transcription = current_transcription
                         
@@ -191,7 +198,6 @@ class HandGestureApp:
                 self.finger_detected = False
                 self.victory_detected = False
 
-            # TODO: check if victory sign is detected
             # Check for victory sign gesture and get index and middle fingertip coordinates
             elif gesture == 'Victory':
                 index_coordinates = (result.hand_landmarks[0][8].x, result.hand_landmarks[0][8].y)
@@ -216,7 +222,7 @@ class HandGestureApp:
 
 
 
-    def check_point_within_objects(self, frame, frame_rgb):
+    def check_point_within_objects(self, frame, frame_rgb, color_detection=False):
         """
         Check if the index finger is pointing inside any detected object.
         
@@ -225,9 +231,10 @@ class HandGestureApp:
                 with OpenCV for display and drawing operations on the image.
             frame_rgb (numpy.ndarray): The RGB frame, it is used to process the image 
                 with MediaPipe after conversion to ensure compatibility and accuracy of gesture recognition analyses.
+            color_detection (bool): Option to indicate the color detection mode.
             
         Returns:
-            str: The result of the object detection.
+            str: The result of the detection of object or color.
         """
     
         if self.index_coordinates is None:
@@ -244,6 +251,7 @@ class HandGestureApp:
         results = self.processor.post_process_object_detection(outputs, target_sizes=target_sizes)[0]
 
         pointed_object = None
+        pointed_color = None
 
         # Iterate over the detected objects
         for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
@@ -268,12 +276,9 @@ class HandGestureApp:
                 if box[0] <= index_x <= box[2] and box[1] <= index_y <= box[3]:
                     pointed_object = label_name
 
-                    # TODO: check average BGR color of sampled object
                     # Sample the average color from the object
-                    avg_color_bgr = self.sample_color_from_object(frame_rgb, box)
-
-                    # Update self.color with the sampled color
-                    self.color = avg_color_bgr
+                    if color_detection:
+                        pointed_color = self.sample_color_from_object(frame_rgb, box)
 
                     # Display the object name (debug mode)
                     if self.debug:
@@ -283,10 +288,14 @@ class HandGestureApp:
 
         if pointed_object is not None:
             self.last_pointed_object = pointed_object
-            print(f"Index finger pointing at: {pointed_object}")
-            # TODO: check that color works
-            print(f"BRG Colour: {avg_color_bgr}")
-            return pointed_object
+            print(f"Selected object: {pointed_object}")
+            # Return the color of the object if the color detection mode is on, otherwise return its name
+            if color_detection:
+                self.last_pointed_color = pointed_color
+                print(f"Color of the selected object: {pointed_color}")
+                return pointed_color
+            else:
+                return pointed_object
         else:
             print("Index finger pointing outside any detected object")
             return None
@@ -365,8 +374,15 @@ class HandGestureApp:
         # Convert the average color to BGR format
         avg_color_bgr = tuple(reversed(avg_color.astype(int)))
 
-        return avg_color_bgr
+        # Sample the BGR color in ranges to return arbitrary categories
+        blue, green, red = avg_color_bgr
 
+        if red >= green and red >= blue:
+            return 'Red'
+        elif blue > red and blue > green:
+            return 'Blue'
+        else:
+            return 'Green'
 
     def run(self):
         """
@@ -386,7 +402,7 @@ class HandGestureApp:
         print("Speech recognition thread started.")
 
         # Capture video from webcam
-        cap = cv2.VideoCapture(0) # Change to 0 for default camera
+        cap = cv2.VideoCapture(0)  # TODO: set to 0 for laptop, 1 for smartphone
         self.width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         self.height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
@@ -425,25 +441,32 @@ class HandGestureApp:
                 cv2.putText(frame, "Index finger detected", (5, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (100, 250, 30), thickness=3)
             elif self.close_fist_detected:
                 cv2.putText(frame, "Closed fist detected", (5, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (250, 50, 50), thickness=3)
-            else :
+            else:
                 cv2.putText(frame, "No Gesture detected", (5, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 250), thickness=3)
 
 
-            # Display the last pointed object
-            if self.last_pointed_object is not None:
-                cv2.putText(frame, f"Last pointed object: {self.last_pointed_object}", (int(self.width/2) - 150, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), thickness=4)
+            # Display on the screen the last pointed object or its color
+            if self.last_pointed_object is not None and self.last_pointed_color is None:
+                cv2.putText(frame, f"Last pointed object: {self.last_pointed_object}", (int(self.width / 2) - 150, 80),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), thickness=4)
+            elif self.last_pointed_color is not None:
+                cv2.putText(frame, f"Color of the last pointed object: {self.last_pointed_color}",
+                            (int(self.width / 2) - 150, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255),
+                            thickness=4)
             else:
                 cv2.putText(frame, "Did not point at any object", (int(self.width/2) - 150, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), thickness=3)
 
 
-            # check if conditions are met to trigger object detection
-            # TODO: check for pointing up or victory
-            if self.trigger_object_detection and self.finger_detected or self.trigger_object_detection and self.victory_detected:
+            # Check which conditions are met, if to trigger object detection or to trigger color detection
+            if self.trigger_object_detection and self.victory_detected or self.trigger_object_detection and self.finger_detected:
                 print("Triggering object detection...")
                 self.check_point_within_objects(frame, frame_rgb)
-                
+            elif self.trigger_color_detection and self.victory_detected or self.trigger_color_detection and self.finger_detected:
+                print("Triggering color detection...")
+                self.check_point_within_objects(frame, frame_rgb, color_detection=True)
 
-            # check if conditions are met to trigger all objects detection
+
+            # Check if conditions are met to trigger all objects detection
             if self.trigger_all_objects_detection and self.close_fist_detected:             
                 detected_objects, bounding_boxes = self.capture_all_objects(frame, frame_rgb)
 
@@ -506,6 +529,7 @@ class HandGestureApp:
             # Reset the trigger flags if they were activated
             self.trigger_all_objects_detection = False
             self.trigger_object_detection = False
+            self.trigger_color_detection = False
 
             # Check for 'q' key press to exit the application
             if cv2.waitKey(1) & 0xFF == ord('q'):
