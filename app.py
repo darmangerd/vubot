@@ -40,6 +40,8 @@ class HandGestureApp:
         self.last_pointed_color = None  # Last detected object color
         self.trigger_all_objects_detection = False # Flag to trigger all objects detection
         self.previous_transcription = ""  # Variable to store the previous transcription
+        self.detection_box = None  # Variable to store the square boxes surrounding the detected objects
+        self.score = None  # Variable to store the detection confidence score
 
         # Initialize DETR model
         self.processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-50")
@@ -66,9 +68,9 @@ class HandGestureApp:
         # self.QUESTION_COLOR_TRIGGER = "what color is this", "what is the color of this", "what color is that"
         # self.COUNTDOWN_TIME = 5  # Countdown time for capturing all objects
 
-        self.OD_POINTED_TRIGGERS = ["help object"]
-        self.OD_ALL_OBJECTS_TRIGGERS = ["help highlight objects"]
-        self.POINTED_COLOR_TRIGGER = ["help color", "help colour"]
+        self.OD_POINTED_TRIGGERS = ["help object", "object"]
+        self.OD_ALL_OBJECTS_TRIGGERS = ["help highlight objects", "all objects", "all"]
+        self.POINTED_COLOR_TRIGGER = ["help color", "help colour", "color"]
         self.QUESTION_TRIGGER = "help"
         self.QUESTION_COLOR_TRIGGER = "help"
         self.COUNTDOWN_TIME = 5  # Countdown time for capturing all objects
@@ -288,6 +290,9 @@ class HandGestureApp:
 
         if pointed_object is not None:
             self.last_pointed_object = pointed_object
+            self.detection_box = box
+            self.score = score
+
             print(f"Selected object: {pointed_object}")
             # Return the color of the object if the color detection mode is on, otherwise return its name
             if color_detection:
@@ -384,6 +389,49 @@ class HandGestureApp:
         else:
             return 'Green'
 
+    def draw_box(self, frame, box, label):
+        cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)
+
+        # Calculate text size and position for checking if it goes beyond the image borders
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        text_scale = 0.9
+        thickness = 2
+        (text_width, text_height), _ = cv2.getTextSize(label, font, text_scale, thickness)
+
+        # Position the text above the bounding box, adjusting as needed
+        text_x = box[0]
+        text_y = box[1] - 10  # default position above the bounding box
+
+        # Ensure the text doesn't go beyond any image borders
+        if text_x < 0:
+            text_x = 0
+
+        if text_y < text_height:
+            text_y = box[1] + text_height + 10
+
+        if text_x + text_width > frame.shape[1]:
+            text_x = frame.shape[1] - text_width
+
+        # Draw the label text
+        score = self.score
+        cv2.putText(frame, f"{label}: {score:.2f}", (text_x, text_y), font, text_scale, (0, 255, 0), thickness)
+
+        # Start the countdown
+        for i in range(self.COUNTDOWN_TIME, 0, -1):
+            # Create a copy of the frame with bounding boxes drawn
+            frame_with_boxes = frame.copy()
+
+            # Draw the countdown text
+            text = f"{i}"
+            cv2.putText(frame_with_boxes, text, (int(self.width / 2), int(self.height / 2)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 235, 255), thickness=4)
+
+            cv2.imshow('Frame', frame_with_boxes)
+
+            # Wait for 1 second
+            cv2.waitKey(1000)
+
+
     def run(self):
         """
         Run the application.
@@ -402,7 +450,7 @@ class HandGestureApp:
         print("Speech recognition thread started.")
 
         # Capture video from webcam
-        cap = cv2.VideoCapture(0)  # TODO: set to 0 for laptop, 1 for smartphone
+        cap = cv2.VideoCapture(0)  # 0 for laptop, 1 for smartphone
         self.width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         self.height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
@@ -457,70 +505,51 @@ class HandGestureApp:
                 cv2.putText(frame, "Did not point at any object", (int(self.width/2) - 150, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), thickness=3)
 
 
-            # Check which conditions are met, if to trigger object detection or to trigger color detection
+            # Check if the condition for launching the single object detection are met
             if self.trigger_object_detection and self.victory_detected or self.trigger_object_detection and self.finger_detected:
+                self.last_pointed_object = None
+                self.last_pointed_color = None
+                self.score = None
                 print("Triggering object detection...")
                 self.check_point_within_objects(frame, frame_rgb)
+
+                # Draw bounding boxes and labels on the frame
+                if self.detection_box is not None:
+                    box = self.detection_box
+                    label = self.last_pointed_object
+                    self.draw_box(frame, box, label)
+
+            # Check if the condition for launching the color detection are met
             elif self.trigger_color_detection and self.victory_detected or self.trigger_color_detection and self.finger_detected:
+                self.last_pointed_object = None
+                self.last_pointed_color = None
+                self.score = None
                 print("Triggering color detection...")
                 self.check_point_within_objects(frame, frame_rgb, color_detection=True)
 
+                # Draw bounding boxes and labels on the frame
+                if self.detection_box is not None:
+                    box = self.detection_box
+                    label = self.last_pointed_color
+                    self.draw_box(frame, box, label)
 
-            # Check if conditions are met to trigger all objects detection
-            if self.trigger_all_objects_detection and self.close_fist_detected:             
+            # Check if the condition for launching the detection of all objects are met
+            elif self.trigger_all_objects_detection and self.close_fist_detected:
+                self.last_pointed_object = None
+                self.last_pointed_color = None
+                self.score = None
+                print("Triggering all objects detection...")
+
+                # Draw bounding boxes and labels on the frame if objects are detected
                 detected_objects, bounding_boxes = self.capture_all_objects(frame, frame_rgb)
-
                 if detected_objects is None:
                     print("No objects detected.")
                     continue
-
                 print("Detected objects:")
                 for obj in detected_objects:
                     print(f"{obj['object']}: {obj['count']}")
-
-
-                # Drawing bounding boxes and labels on the frame
                 for box, label in bounding_boxes:
-                    cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)
-
-                    # Calculate text size and position for checking if it goes beyond the image borders
-                    font = cv2.FONT_HERSHEY_SIMPLEX
-                    text_scale = 0.9
-                    thickness = 2
-                    (text_width, text_height), _ = cv2.getTextSize(label, font, text_scale, thickness)
-
-                    # Position the text above the bounding box, adjusting as needed
-                    text_x = box[0]
-                    text_y = box[1] - 10  # default position above the bounding box
-
-                    # Ensure the text doesn't go beyond any image borders 
-                    if text_x < 0:
-                        text_x = 0
-
-                    if text_y < text_height:
-                        text_y = box[1] + text_height + 10
-
-                    if text_x + text_width > frame.shape[1]:
-                        text_x = frame.shape[1] - text_width
-
-                    # Draw the label text
-                    cv2.putText(frame, label, (text_x, text_y), font, text_scale, (0, 255, 0), thickness)
-
-
-                # Start the countdown
-                for i in range(self.COUNTDOWN_TIME, 0, -1):
-                    # Create a copy of the frame with bounding boxes drawn
-                    frame_with_boxes = frame.copy()
-
-                    # Draw the countdown text
-                    text = f"{i}"
-                    cv2.putText(frame_with_boxes, text, (int(self.width/2), int(self.height/2)),
-                                cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 235, 255), thickness=4)
-
-                    cv2.imshow('Frame', frame_with_boxes)
-
-                    # Wait for 1 second
-                    cv2.waitKey(1000)
+                    self.draw_box(frame, box, label)
 
 
             # Display the frame 
@@ -530,6 +559,7 @@ class HandGestureApp:
             self.trigger_all_objects_detection = False
             self.trigger_object_detection = False
             self.trigger_color_detection = False
+
 
             # Check for 'q' key press to exit the application
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -546,5 +576,5 @@ class HandGestureApp:
 
 
 # Run the HandGestureApp
-app = HandGestureApp("./model/gesture_recognizer.task", debug=True)
+app = HandGestureApp("./model/gesture_recognizer.task", debug=False)
 app.run()
