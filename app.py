@@ -377,17 +377,39 @@ class HandGestureApp:
         avg_color = np.mean(object_region, axis=(0, 1))
 
         # Convert the average color to BGR format
-        avg_color_bgr = tuple(reversed(avg_color.astype(int)))
+        avg_color_bgr = np.array(avg_color[::-1], dtype=np.uint8)
 
-        # Sample the BGR color in ranges to return arbitrary categories
-        blue, green, red = avg_color_bgr
+        print(avg_color_bgr)
 
-        if red >= green and red >= blue:
-            return 'Red'
-        elif blue > red and blue > green:
-            return 'Blue'
-        else:
-            return 'Green'
+        colors = {
+            "red": ([0, 0, 50], [70, 70, 255]),
+            "orange": ([0, 50, 150], [150, 150, 255]),
+            "yellow": ([0, 100, 100], [150, 255, 255]),
+            "green": ([0, 50, 0], [100, 255, 100]),
+            "blue": ([100, 0, 0], [255, 100, 100]),
+            "purple": ([70, 0, 70], [255, 70, 255]),
+            "pink": ([150, 50, 150], [255, 180, 255]),
+            "white": ([180, 180, 180], [255, 255, 255]),
+            "grey": ([100, 100, 100], [180, 180, 180]),
+            "black": ([0, 0, 0], [50, 50, 50])
+        }
+
+        for color, (lower, upper) in colors.items():
+            lower = np.array(lower, dtype=np.uint8)
+            upper = np.array(upper, dtype=np.uint8)
+            if cv2.inRange(avg_color_bgr, lower, upper).all():
+                return str(color)
+        return "unknown"
+
+        # # Sample the BGR color in ranges to return arbitrary categories
+        # blue, green, red = avg_color_bgr
+        #
+        # if red >= green and red >= blue:
+        #     return 'Red'
+        # elif blue > red and blue > green:
+        #     return 'Blue'
+        # else:
+        #     return 'Green'
 
     def draw_box(self, frame, box, label):
         cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)
@@ -482,7 +504,6 @@ class HandGestureApp:
             self.recognizer.recognize_async(mp_image, frame_timestamp_ms)
 
             # Display finger detection status
-            # TODO: check if middle finger and
             if self.victory_detected:
                 cv2.putText(frame, "Victory detected", (5, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (250, 50, 50), thickness=3)
             elif self.finger_detected:
