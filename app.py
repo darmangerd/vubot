@@ -20,7 +20,7 @@ class HandGestureApp:
         debug (bool): Whether to run the application in debug mode. Default is False.
         detection_threshold (float): The object detection threshold. Default is 0.8.
     """
-    def __init__(self, model_gesture_path, debug=False, detection_threshold=0.8):
+    def __init__(self, model_gesture_path, debug=False, detection_threshold=0.8, display_boxes=False):
         # General parameters
         self.model_gesture_path = model_gesture_path  # Path to the gesture recognition model
         self.running = True  # Initialize running flag
@@ -40,8 +40,9 @@ class HandGestureApp:
         self.last_pointed_color = None  # Last detected object color
         self.trigger_all_objects_detection = False # Flag to trigger all objects detection
         self.previous_transcription = ""  # Variable to store the previous transcription
-        self.detection_box = None  # Variable to store the square boxes surrounding the detected objects
+        self.detection_box = None  # Variable to store the square boxes around detected objects
         self.score = None  # Variable to store the detection confidence score
+        self.display_boxes = display_boxes  # Flag for displaying the square boxes around detected objects
 
         # Initialize DETR model
         self.processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-50")
@@ -69,7 +70,7 @@ class HandGestureApp:
         # self.COUNTDOWN_TIME = 5  # Countdown time for capturing all objects
 
         self.OD_POINTED_TRIGGERS = ["help object", "object"]
-        self.OD_ALL_OBJECTS_TRIGGERS = ["help highlight objects", "all objects", "all"]
+        self.OD_ALL_OBJECTS_TRIGGERS = ["help highlight objects", "all objects", "all", "everything"]
         self.POINTED_COLOR_TRIGGER = ["help color", "help colour", "color"]
         self.QUESTION_TRIGGER = "help"
         self.QUESTION_COLOR_TRIGGER = "help"
@@ -267,10 +268,12 @@ class HandGestureApp:
             if score > self.detection_threshold:
                 # Convert bounding box to integer format
                 box = box.int().tolist()
+                # Update score
+                # self.score = score.item()
 
                 # Draw bounding box (debug mode)
                 if self.debug:
-                    cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2) 
+                    cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)
                     score = score.item()
                     cv2.putText(frame, f"{label_name}: {score:.2f}", (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
@@ -339,11 +342,17 @@ class HandGestureApp:
             # Check if the object detection score is above a threshold
             if score > self.detection_threshold:
 
-                # Convert bounding 
+                # Update score
+                # self.score = score.item()
+
+                # Get score value from tensor
+                score = score.item()
+
+                # Convert bounding
                 box = box.int().tolist()
 
                 # save bounding box and label
-                bounding_boxes.append((box, label_name))
+                bounding_boxes.append((box, label_name, score))
 
                 # Update the object counts
                 if label_name in object_counts:
@@ -411,7 +420,8 @@ class HandGestureApp:
         # else:
         #     return 'Green'
 
-    def draw_box(self, frame, box, label):
+    def draw_box(self, frame, box, label, score=None):
+
         cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)
 
         # Calculate text size and position for checking if it goes beyond the image borders
@@ -434,9 +444,11 @@ class HandGestureApp:
         if text_x + text_width > frame.shape[1]:
             text_x = frame.shape[1] - text_width
 
-        # Draw the label text
-        score = self.score
-        cv2.putText(frame, f"{label}: {score:.2f}", (text_x, text_y), font, text_scale, (0, 255, 0), thickness)
+        # Draw the label text; only include score if it is set to a value
+        if score is not None:
+            cv2.putText(frame, f"{label}: {score:.2f}", (text_x, text_y), font, text_scale, (0, 255, 0), thickness)
+        else:
+            cv2.putText(frame, f"{label}", (text_x, text_y), font, text_scale, (0, 255, 0), thickness)
 
         # Start the countdown
         for i in range(self.COUNTDOWN_TIME, 0, -1):
@@ -530,28 +542,30 @@ class HandGestureApp:
             if self.trigger_object_detection and self.victory_detected or self.trigger_object_detection and self.finger_detected:
                 self.last_pointed_object = None
                 self.last_pointed_color = None
-                self.score = None
+                # self.score = None
                 print("Triggering object detection...")
                 self.check_point_within_objects(frame, frame_rgb)
 
                 # Draw bounding boxes and labels on the frame
-                if self.detection_box is not None:
+                if self.display_boxes and self.detection_box is not None:
                     box = self.detection_box
                     label = self.last_pointed_object
+                    # score = self.score
                     self.draw_box(frame, box, label)
 
             # Check if the condition for launching the color detection are met
             elif self.trigger_color_detection and self.victory_detected or self.trigger_color_detection and self.finger_detected:
                 self.last_pointed_object = None
                 self.last_pointed_color = None
-                self.score = None
+                # self.score = None
                 print("Triggering color detection...")
                 self.check_point_within_objects(frame, frame_rgb, color_detection=True)
 
                 # Draw bounding boxes and labels on the frame
-                if self.detection_box is not None:
+                if self.display_boxes and self.detection_box is not None:
                     box = self.detection_box
                     label = self.last_pointed_color
+                    # score = self.score
                     self.draw_box(frame, box, label)
 
             # Check if the condition for launching the detection of all objects are met
@@ -569,8 +583,8 @@ class HandGestureApp:
                 print("Detected objects:")
                 for obj in detected_objects:
                     print(f"{obj['object']}: {obj['count']}")
-                for box, label in bounding_boxes:
-                    self.draw_box(frame, box, label)
+                for box, label, score in bounding_boxes:
+                    self.draw_box(frame, box, label, score)
 
 
             # Display the frame 
@@ -597,5 +611,5 @@ class HandGestureApp:
 
 
 # Run the HandGestureApp
-app = HandGestureApp("./model/gesture_recognizer.task", debug=False)
+app = HandGestureApp("./model/gesture_recognizer.task", debug=True, display_boxes=False)
 app.run()
