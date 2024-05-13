@@ -8,6 +8,7 @@ import threading
 import numpy as np
 import sounddevice as sd
 import queue
+import colorsys
 
 
 class HandGestureApp:
@@ -61,7 +62,6 @@ class HandGestureApp:
         self.whisper_model = whisper.load_model("small.en")  # Load Whisper model
 
         # Constant sentence to trigger actions
-        # TODO: change inputs and add a trigger word
         # self.OD_POINTED_TRIGGERS = ["what is this", "help me what is this", "identify this"]
         # self.OD_ALL_OBJECTS_TRIGGERS = ["capture all objects", "capture objects"]
         # self.POINTED_COLOR_TRIGGER = "what color is this", "what color is that"
@@ -385,30 +385,80 @@ class HandGestureApp:
         # Calculate the average color of the object region
         avg_color = np.mean(object_region, axis=(0, 1))
 
-        # Convert the average color to BGR format
-        avg_color_bgr = np.array(avg_color[::-1], dtype=np.uint8)
+        print(avg_color)
 
-        print(avg_color_bgr)
+        # Convert the average color to BGR format
+        # avg_color_rgb = np.array(avg_color, dtype=np.uint8)
+
+
+        # TODO: TEST HERE
 
         colors = {
-            "red": ([0, 0, 50], [70, 70, 255]),
-            "orange": ([0, 50, 150], [150, 150, 255]),
-            "yellow": ([0, 100, 100], [150, 255, 255]),
-            "green": ([0, 50, 0], [100, 255, 100]),
-            "blue": ([100, 0, 0], [255, 100, 100]),
-            "purple": ([70, 0, 70], [255, 70, 255]),
-            "pink": ([150, 50, 150], [255, 180, 255]),
-            "white": ([180, 180, 180], [255, 255, 255]),
-            "grey": ([100, 100, 100], [180, 180, 180]),
-            "black": ([0, 0, 0], [50, 50, 50])
+            'red': (255, 0, 0),
+            'green': (0, 255, 0),
+            'blue': (0, 0, 255),
+            'yellow': (255, 255, 0),
+            'cyan': (0, 255, 255),
+            'magenta': (255, 0, 255),
+            'white': (255, 255, 255),
+            'black': (0, 0, 0)
+            # Add more color definitions as needed
         }
 
-        for color, (lower, upper) in colors.items():
-            lower = np.array(lower, dtype=np.uint8)
-            upper = np.array(upper, dtype=np.uint8)
-            if cv2.inRange(avg_color_bgr, lower, upper).all():
-                return str(color)
-        return "unknown"
+        min_distance = float('inf')
+        closest_color = None
+
+        for name, color in colors.items():
+            distance = sum((a - b) ** 2 for a, b in zip(avg_color, color)) ** 0.5
+            if distance < min_distance:
+                min_distance = distance
+                closest_color = name
+
+        return closest_color
+
+        # colors = {
+        #     "red": [0, 0, 255],
+        #     "orange": [0, 165, 255],
+        #     "yellow": [0, 255, 255],
+        #     "green": [0, 128, 0],
+        #     "blue": [255, 0, 0],
+        #     "purple": [128, 0, 128],
+        #     "pink": [255, 192, 203],
+        #     "white": [255, 255, 255],
+        #     "grey": [128, 128, 128],
+        #     "black": [0, 0, 0]
+        # }
+        #
+        # min_distance = float('inf')
+        # closest_color = None
+        #
+        # for color_name, color_value in colors.items():
+        #     distance = np.linalg.norm(np.array(color_value) - np.array(avg_color_bgr))
+        #     if distance < min_distance:
+        #         min_distance = distance
+        #         closest_color = color_name
+        #
+        # return closest_color
+
+        # colors = {
+        #     "red": ([0, 0, 50], [70, 70, 255]),
+        #     "orange": ([0, 50, 150], [150, 150, 255]),
+        #     "yellow": ([0, 100, 100], [150, 255, 255]),
+        #     "green": ([0, 50, 0], [100, 255, 100]),
+        #     "blue": ([100, 0, 0], [255, 100, 100]),
+        #     "purple": ([70, 0, 70], [255, 70, 255]),
+        #     "pink": ([150, 50, 150], [255, 180, 255]),
+        #     "white": ([180, 180, 180], [255, 255, 255]),
+        #     "grey": ([100, 100, 100], [180, 180, 180]),
+        #     "black": ([0, 0, 0], [50, 50, 50])
+        # }
+        #
+        # for color, (lower, upper) in colors.items():
+        #     lower = np.array(lower, dtype=np.uint8)
+        #     upper = np.array(upper, dtype=np.uint8)
+        #     if cv2.inRange(avg_color_bgr, lower, upper).all():
+        #         return str(color)
+        # return "unknown"
 
         # # Sample the BGR color in ranges to return arbitrary categories
         # blue, green, red = avg_color_bgr
@@ -421,6 +471,7 @@ class HandGestureApp:
         #     return 'Green'
 
     def draw_box(self, frame, box, label, score=None):
+        # print('box', box)
 
         cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)
 
@@ -445,10 +496,10 @@ class HandGestureApp:
             text_x = frame.shape[1] - text_width
 
         # Draw the label text; only include score if it is set to a value
-        if score is not None:
-            cv2.putText(frame, f"{label}: {score:.2f}", (text_x, text_y), font, text_scale, (0, 255, 0), thickness)
-        else:
-            cv2.putText(frame, f"{label}", (text_x, text_y), font, text_scale, (0, 255, 0), thickness)
+        # if score is not None:
+        #     cv2.putText(frame, f"{label}: {score:.2f}", (text_x, text_y), font, text_scale, (0, 255, 0), thickness)
+        # else:
+        #     cv2.putText(frame, f"{label}", (text_x, text_y), font, text_scale, (0, 255, 0), thickness)
 
         # Start the countdown
         for i in range(self.COUNTDOWN_TIME, 0, -1):
@@ -547,6 +598,7 @@ class HandGestureApp:
                 self.check_point_within_objects(frame, frame_rgb)
 
                 # Draw bounding boxes and labels on the frame
+                # TODO: TEST HERE
                 if self.display_boxes and self.detection_box is not None:
                     box = self.detection_box
                     label = self.last_pointed_object
@@ -611,5 +663,5 @@ class HandGestureApp:
 
 
 # Run the HandGestureApp
-app = HandGestureApp("./model/gesture_recognizer.task", debug=True, display_boxes=False)
+app = HandGestureApp("./model/gesture_recognizer.task", debug=False, display_boxes=False)
 app.run()
