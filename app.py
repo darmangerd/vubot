@@ -385,7 +385,7 @@ class HandGestureApp:
         # Calculate the average color of the object region
         avg_color = np.mean(object_region, axis=(0, 1))
 
-        print(avg_color)
+        # print(avg_color)
 
         # Convert the average color to BGR format
         # avg_color_rgb = np.array(avg_color, dtype=np.uint8)
@@ -402,19 +402,41 @@ class HandGestureApp:
             'magenta': (255, 0, 255),
             'white': (255, 255, 255),
             'black': (0, 0, 0)
-            # Add more color definitions as needed
         }
 
         min_distance = float('inf')
         closest_color = None
 
         for name, color in colors.items():
-            distance = sum((a - b) ** 2 for a, b in zip(avg_color, color)) ** 0.5
+            distance = np.linalg.norm(np.array(avg_color) - np.array(color))
             if distance < min_distance:
                 min_distance = distance
                 closest_color = name
 
         return closest_color
+
+        # colors = {
+        #     'red': (255, 0, 0),
+        #     'green': (0, 255, 0),
+        #     'blue': (0, 0, 255),
+        #     'yellow': (255, 255, 0),
+        #     'cyan': (0, 255, 255),
+        #     'magenta': (255, 0, 255),
+        #     'white': (255, 255, 255),
+        #     'black': (0, 0, 0)
+        #     # Add more color definitions as needed
+        # }
+        #
+        # min_distance = float('inf')
+        # closest_color = None
+        #
+        # for name, color in colors.items():
+        #     distance = sum((a - b) ** 2 for a, b in zip(avg_color, color)) ** 0.5
+        #     if distance < min_distance:
+        #         min_distance = distance
+        #         closest_color = name
+        #
+        # return closest_color
 
         # colors = {
         #     "red": [0, 0, 255],
@@ -535,9 +557,13 @@ class HandGestureApp:
         print("Speech recognition thread started.")
 
         # Capture video from webcam
+        # TODO: change video input
         cap = cv2.VideoCapture(0)  # 0 for laptop, 1 for smartphone
+        cv2.namedWindow('Frame', cv2.WINDOW_NORMAL)
         self.width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         self.height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        # self.width = 1920
+        # self.height = 1080
 
         # Initialize the timestamp (used for gesture recognition synchronization)
         start_time = time.time()
@@ -598,7 +624,6 @@ class HandGestureApp:
                 self.check_point_within_objects(frame, frame_rgb)
 
                 # Draw bounding boxes and labels on the frame
-                # TODO: TEST HERE
                 if self.display_boxes and self.detection_box is not None:
                     box = self.detection_box
                     label = self.last_pointed_object
@@ -663,5 +688,5 @@ class HandGestureApp:
 
 
 # Run the HandGestureApp
-app = HandGestureApp("./model/gesture_recognizer.task", debug=False, display_boxes=False)
+app = HandGestureApp("./model/gesture_recognizer.task", debug=True, display_boxes=False)
 app.run()
