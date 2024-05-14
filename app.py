@@ -306,14 +306,17 @@ class HandGestureApp:
             self.detection_box = box
             self.score = score
 
-            print(f"Selected object: {pointed_object}")
-            # Return the color of the object if the color detection mode is on, otherwise return its name
-            if color_detection:
+            # Return adn print the detected object in object detection mode
+            if not color_detection:
+                print(f"Selected object: {pointed_object}")
+                return pointed_object
+
+            # Return and print the color of the object if the color detection mode is on
+            else:
                 self.last_pointed_color = pointed_color
                 print(f"Color of the selected object: {pointed_color}")
                 return pointed_color
-            else:
-                return pointed_object
+
         else:
             print("Index finger pointing outside any detected object")
             return None
@@ -394,8 +397,6 @@ class HandGestureApp:
 
         # Calculate the average color of the object region
         avg_color = np.mean(object_region, axis=(0, 1))
-
-        print(avg_color)
 
         rgb_value = tuple(int(round(x)) for x in avg_color)
 
@@ -674,5 +675,5 @@ class HandGestureApp:
 
 
 # Run the HandGestureApp
-app = HandGestureApp("./model/gesture_recognizer.task", debug=True, display_boxes=False)
+app = HandGestureApp("./model/gesture_recognizer.task", debug=False, display_boxes=False)
 app.run()
