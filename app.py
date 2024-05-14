@@ -1,6 +1,8 @@
 import cv2
 import mediapipe as mp
 import time
+
+import pandas as pd
 from transformers import DetrImageProcessor, DetrForObjectDetection
 import torch
 import whisper
@@ -23,6 +25,14 @@ class HandGestureApp:
     """
     def __init__(self, model_gesture_path, debug=False, detection_threshold=0.5, display_boxes=False):
         # General parameters
+        self.participant_id = input("Participant ID:")
+        self.evaluation = {
+            "ID": [],
+            "version": [],
+            "timelog": [],
+            "task": [],
+            "response": []
+        }
         self.model_gesture_path = model_gesture_path  # Path to the gesture recognition model
         self.running = True  # Initialize running flag
         # Gesture and Object Detection parameters
@@ -573,7 +583,16 @@ class HandGestureApp:
                 self.last_pointed_color = None
                 # self.score = None
                 print("Triggering object detection...")
+                query_start = time.time()
                 self.check_point_within_objects(frame, frame_rgb)
+                query_end = time.time()
+                query_duration = query_end - query_start
+                self.evaluation["ID"].append(self.participant_id)
+                self.evaluation["version"].append('speech')  # Different for alternate version to evaluate!
+                self.evaluation["timelog"].append(query_duration)
+                self.evaluation["task"].append('object')
+                self.evaluation["response"].append(self.last_pointed_object)
+
 
                 # Draw bounding boxes and labels on the frame
                 if self.display_boxes and self.detection_box is not None:
@@ -588,7 +607,15 @@ class HandGestureApp:
                 self.last_pointed_color = None
                 # self.score = None
                 print("Triggering color detection...")
+                query_start = time.time()
                 self.check_point_within_objects(frame, frame_rgb, color_detection=True)
+                query_end = time.time()
+                query_duration = query_end - query_start
+                self.evaluation["ID"].append(self.participant_id)
+                self.evaluation["version"].append('speech')  # Different for alternate version to evaluate!
+                self.evaluation["timelog"].append(query_duration)
+                self.evaluation["task"].append('color')
+                self.evaluation["response"].append(self.last_pointed_color)
 
                 # Draw bounding boxes and labels on the frame
                 if self.display_boxes and self.detection_box is not None:
@@ -627,6 +654,13 @@ class HandGestureApp:
 
             # Check for 'q' key press to exit the application
             if cv2.waitKey(1) & 0xFF == ord('q'):
+                df_evaluation = pd.DataFrame.from_dict(self.evaluation)
+                print(
+                    f"{df_evaluation = }"
+                )
+                # df_evaluation.to_excel(f"/Users/sophiecaroni/vubot/{self.participant_id}_{self.evaluation['version']}.xlsx")
+                df_evaluation.to_csv(f"{self.participant_id}_{self.evaluation['version'][0]}.csv")
+
                 self.running = False  # Signal to stop the threads
                 break
 
