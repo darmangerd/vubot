@@ -23,7 +23,8 @@ class HandGestureApp:
         debug (bool): Whether to run the application in debug mode. Default is False.
         detection_threshold (float): The object detection threshold. Default is 0.8.
     """
-    def __init__(self, model_gesture_path, debug=False, detection_threshold=0.5, display_boxes=False):
+    def __init__(self, model_gesture_path, debug=False, detection_threshold=0.8, display_boxes=False):
+        input("Start screen recording! (press 'y' when done) ")
         # General parameters
         self.participant_id = input("Participant ID:")
         self.evaluation = {
@@ -655,12 +656,11 @@ class HandGestureApp:
 
             # Check for 'q' key press to exit the application
             if cv2.waitKey(1) & 0xFF == ord('q'):
+
+                # Save data for evaluation before leaving
                 df_evaluation = pd.DataFrame.from_dict(self.evaluation)
-                print(
-                    f"{df_evaluation = }"
-                )
-                # df_evaluation.to_excel(f"/Users/sophiecaroni/vubot/{self.participant_id}_{self.evaluation['version']}.xlsx")
-                df_evaluation.to_csv(f"{self.participant_id}_{self.evaluation['version'][0]}.csv")
+                df_evaluation.to_csv(f"{self.participant_id}_{self.evaluation['version'][0]}.csv")  # save it as separate file
+                df_evaluation.to_csv('main_evaluation.csv', mode='a', index=True, header=False) # append data to the main file
 
                 self.running = False  # Signal to stop the threads
                 break
