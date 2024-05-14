@@ -44,7 +44,6 @@ class HandGestureApp:
         self.last_pointed_color = None  # Last detected object color
         self.trigger_all_objects_detection = False # Flag to trigger all objects detection
         self.detection_box = None  # Variable to store the square boxes around detected objects
-        self.score = None  # Variable to store the detection confidence score
         self.display_boxes = display_boxes  # Flag for displaying the square boxes around detected objects
 
         # Initialize DETR model
@@ -269,8 +268,6 @@ class HandGestureApp:
             if score > self.detection_threshold:
                 # Convert bounding box to integer format
                 box = box.int().tolist()
-                # Update score
-                # self.score = score.item()
 
                 # Draw bounding box (debug mode)
                 if self.debug:
@@ -295,7 +292,6 @@ class HandGestureApp:
         if pointed_object is not None:
             self.last_pointed_object = pointed_object
             self.detection_box = box
-            self.score = score
 
             # Return adn print the detected object in object detection mode
             if not color_detection:
@@ -345,9 +341,6 @@ class HandGestureApp:
             
             # Check if the object detection score is above a threshold
             if score > self.detection_threshold:
-
-                # Update score
-                # self.score = score.item()
 
                 # Get score value from tensor
                 score = score.item()
@@ -571,7 +564,6 @@ class HandGestureApp:
             if self.trigger_object_detection and self.victory_detected or self.trigger_object_detection and self.finger_detected:
                 self.last_pointed_object = None
                 self.last_pointed_color = None
-                # self.score = None
                 print("Triggering object detection...")
         
                 if self.debug:
@@ -600,7 +592,6 @@ class HandGestureApp:
             elif self.trigger_color_detection and self.victory_detected or self.trigger_color_detection and self.finger_detected:
                 self.last_pointed_object = None
                 self.last_pointed_color = None
-                # self.score = None
                 print("Triggering color detection...")
 
                 if self.debug:
@@ -621,14 +612,12 @@ class HandGestureApp:
                 if self.display_boxes and self.detection_box is not None:
                     box = self.detection_box
                     label = self.last_pointed_color
-                    # score = self.score
                     self.draw_box(frame, box, label)
 
             # Check if the condition for launching the detection of all objects are met
             elif self.trigger_all_objects_detection and self.close_fist_detected:
                 self.last_pointed_object = None
                 self.last_pointed_color = None
-                self.score = None
                 print("Triggering all objects detection...")
 
                 # Draw bounding boxes and labels on the frame if objects are detected
