@@ -205,6 +205,7 @@ class HandGestureApp:
 
             # Check for victory sign gesture and get index and middle fingertip coordinates
             elif gesture == 'Victory':
+                # TODO - victory
                 index_coordinates = (result.hand_landmarks[0][8].x, result.hand_landmarks[0][8].y)
                 middle_finger_coordinates = (result.hand_landmarks[0][12].x, result.hand_landmarks[0][12].y)
                 self.index_coordinates = (int(index_coordinates[0] * self.width), int(index_coordinates[1] * self.height))
@@ -239,11 +240,14 @@ class HandGestureApp:
         Returns:
             str: The result of the detection of object or color.
         """
-    
-        if self.index_coordinates is None:
+                
+        if self.index_coordinates is not None:
+            index_x, index_y = self.index_coordinates
+        elif self.middle_finger_coordinates is not None:
+            # TODO - victory
+            index_x, index_y = self.middle_finger_coordinates
+        else:
             return "No index finger coordinates available."
-        
-        index_x, index_y = self.index_coordinates
 
         # Process the image for object detection
         inputs = self.processor(images=frame_rgb, return_tensors="pt")
@@ -504,7 +508,6 @@ class HandGestureApp:
         print("Speech recognition thread started.")
 
         # Capture video from webcam
-        # TODO: change video input
         cap = cv2.VideoCapture(0)  # 0 for laptop, 1 for smartphone
         cv2.namedWindow('Frame', cv2.WINDOW_NORMAL)
         self.width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
@@ -585,7 +588,6 @@ class HandGestureApp:
                 if self.display_boxes and self.detection_box is not None:
                     box = self.detection_box
                     label = self.last_pointed_object
-                    # score = self.score
                     self.draw_box(frame, box, label)
 
             # Check if the condition for launching the color detection are met
