@@ -10,7 +10,6 @@ import threading
 import numpy as np
 import sounddevice as sd
 import queue
-import colorsys
 
 
 class HandGestureApp:
@@ -24,18 +23,11 @@ class HandGestureApp:
         detection_threshold (float): The object detection threshold. Default is 0.8.
     """
     def __init__(self, model_gesture_path, debug=False, detection_threshold=0.8, display_boxes=False):
-        input("Start screen recording! (press 'y' when done) ")
+
         # General parameters
-        self.participant_id = input("Participant ID:")
-        self.evaluation = {
-            "ID": [],
-            "version": [],
-            "timelog": [],
-            "task": [],
-            "response": []
-        }
         self.model_gesture_path = model_gesture_path  # Path to the gesture recognition model
         self.running = True  # Initialize running flag
+
         # Gesture and Object Detection parameters
         self.index_coordinates = None  # Initialize index finger coordinates
         self.middle_finger_coordinates = None  # Initialize middle finger coordinates
@@ -51,7 +43,6 @@ class HandGestureApp:
         self.last_pointed_object = None  # Last detected object name
         self.last_pointed_color = None  # Last detected object color
         self.trigger_all_objects_detection = False # Flag to trigger all objects detection
-        self.previous_transcription = ""  # Variable to store the previous transcription
         self.detection_box = None  # Variable to store the square boxes around detected objects
         self.score = None  # Variable to store the detection confidence score
         self.display_boxes = display_boxes  # Flag for displaying the square boxes around detected objects
@@ -73,25 +64,29 @@ class HandGestureApp:
         self.whisper_model = whisper.load_model("small.en")  # Load Whisper model
 
         # Constant sentence to trigger actions
-        # self.OD_POINTED_TRIGGERS = ["what is this", "help me what is this", "identify this"]
-        # self.OD_ALL_OBJECTS_TRIGGERS = ["capture all objects", "capture objects"]
-        # self.POINTED_COLOR_TRIGGER = "what color is this", "what color is that"
-        # self.QUESTION_TRIGGER = "help is it", "help is this", "help me is that"
-        # self.QUESTION_COLOR_TRIGGER = "what color is this", "what is the color of this", "what color is that"
-        # self.COUNTDOWN_TIME = 5  # Countdown time for capturing all objects
+        self.OD_POINTED_TRIGGERS = ["help object", "identify object"]
+        self.OD_ALL_OBJECTS_TRIGGERS = ["highlight items", "all items", "every item"]
+        self.POINTED_COLOR_TRIGGER = ["help color", "identify color"]
 
-        self.OD_POINTED_TRIGGERS = ["help object", "object"]
-        self.OD_ALL_OBJECTS_TRIGGERS = ["help highlight objects", "all objects", "all", "everything"]
-        self.POINTED_COLOR_TRIGGER = ["help color", "help colour", "color"]
-        self.QUESTION_TRIGGER = "help"
-        self.QUESTION_COLOR_TRIGGER = "help"
-        self.COUNTDOWN_TIME = 5  # Countdown time for capturing all objects
+        self.COUNTDOWN_TIME = 3  # Countdown time for when capturing all objects
+
+        if self.debug:
+            input("Start screen recording! (press 'y' when done) ")
+            # General parameters
+            self.participant_id = input("Participant ID:")
+            self.evaluation = {
+                "ID": [],
+                "version": [],
+                "timelog": [],
+                "task": [],
+                "response": []
+            }
+
 
     def start_speech_recognition(self):
         """
         Start the speech recognition from the microphone until any target word is identified.
         """
-
 
         def live_audio_callback(indata, frames, time, status):
             """
@@ -132,15 +127,15 @@ class HandGestureApp:
 
                         # Format the transcription
                         current_transcription = result['text'].lower().strip()
+                        # Remove special characters
                         current_transcription = ''.join(e for e in current_transcription if e.isalnum() or e.isspace())
 
                         if self.debug:
                             print(f"Transcription: {current_transcription}")
 
-                        # Combine the previous and current transcriptions for better handling user speech
-                        combined_transcription = f"{self.previous_transcription} {current_transcription}".strip()
 
-                        if any(phrase in combined_transcription for phrase in self.OD_POINTED_TRIGGERS):
+                        # trigger for pointed object detection
+                        if any(phrase in current_transcription for phrase in self.OD_POINTED_TRIGGERS):
                             # Lock to make sure only one thread is updating the trigger flag
                             with threading.Lock():
                                 self.trigger_object_detection = True
@@ -149,7 +144,8 @@ class HandGestureApp:
                                 time.sleep(2)
                                 self.current_transcription = ""
 
-                        elif any(phrase in combined_transcription for phrase in self.OD_ALL_OBJECTS_TRIGGERS):
+                        # trigger for all objects detection
+                        elif any(phrase in current_transcription for phrase in self.OD_ALL_OBJECTS_TRIGGERS):
                             # lock to make sure only one thread is updating the trigger flag
                             with threading.Lock():
                                 self.trigger_all_objects_detection = True
@@ -158,7 +154,8 @@ class HandGestureApp:
                                 time.sleep(2)
                                 self.current_transcription = ""
 
-                        elif any(phrase in combined_transcription for phrase in self.POINTED_COLOR_TRIGGER):
+                        # trigger for pointed color detection
+                        elif any(phrase in current_transcription for phrase in self.POINTED_COLOR_TRIGGER):
                             # lock to make sure only one thread is updating the trigger flag
                             with threading.Lock():
                                 self.trigger_color_detection = True
@@ -166,10 +163,6 @@ class HandGestureApp:
                                 # Sleep and reset text to avoid multiple triggers
                                 time.sleep(2)
                                 self.current_transcription = ""
-
-                        # Update the previous transcription
-                        self.previous_transcription = current_transcription
-                        
 
         except Exception as e:
             print(f"Error in speech recognition: {e}")
@@ -200,7 +193,6 @@ class HandGestureApp:
                 # Get the index tip coordinates (x, y), 8 is the index tip landmark
                 coordinates = (result.hand_landmarks[0][8].x, result.hand_landmarks[0][8].y)
                 self.index_coordinates = (int(coordinates[0] * self.width), int(coordinates[1] * self.height))
-                # print(f'Index tip coordinates: {self.index_coordinates}')
                 self.finger_detected = True 
                 self.close_fist_detected = False
                 self.victory_detected = False
@@ -217,9 +209,7 @@ class HandGestureApp:
                 index_coordinates = (result.hand_landmarks[0][8].x, result.hand_landmarks[0][8].y)
                 middle_finger_coordinates = (result.hand_landmarks[0][12].x, result.hand_landmarks[0][12].y)
                 self.index_coordinates = (int(index_coordinates[0] * self.width), int(index_coordinates[1] * self.height))
-                # print(f'Index tip coordinates: {self.index_coordinates}')
                 self.middle_finger_coordinates = (int(middle_finger_coordinates[0] * self.width), int(middle_finger_coordinates[1] * self.height))
-                # print(f'Middle finger tip coordinates: {self.middle_finger_coordinates}')
                 self.victory_detected = True
                 self.close_fist_detected = False
                 self.finger_detected = False
@@ -526,8 +516,6 @@ class HandGestureApp:
         cv2.namedWindow('Frame', cv2.WINDOW_NORMAL)
         self.width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         self.height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-        # self.width = 1920
-        # self.height = 1080
 
         # Initialize the timestamp (used for gesture recognition synchronization)
         start_time = time.time()
@@ -558,7 +546,7 @@ class HandGestureApp:
 
             # Display finger detection status
             if self.victory_detected:
-                cv2.putText(frame, "Victory detected", (5, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (250, 50, 50), thickness=3)
+                cv2.putText(frame, "Victory detected", (5, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (200, 140, 180), thickness=3)
             elif self.finger_detected:
                 cv2.putText(frame, "Index finger detected", (5, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (100, 250, 30), thickness=3)
             elif self.close_fist_detected:
@@ -585,15 +573,20 @@ class HandGestureApp:
                 self.last_pointed_color = None
                 # self.score = None
                 print("Triggering object detection...")
-                query_start = time.time()
+        
+                if self.debug:
+                    query_start = time.time()
+
                 self.check_point_within_objects(frame, frame_rgb)
-                query_end = time.time()
-                query_duration = query_end - query_start
-                self.evaluation["ID"].append(self.participant_id)
-                self.evaluation["version"].append('speech')  # Different for alternate version to evaluate!
-                self.evaluation["timelog"].append(query_duration)
-                self.evaluation["task"].append('object')
-                self.evaluation["response"].append(self.last_pointed_object)
+
+                if self.debug:
+                    query_end = time.time()
+                    query_duration = query_end - query_start
+                    self.evaluation["ID"].append(self.participant_id)
+                    self.evaluation["version"].append('speech')  # Different for alternate version to evaluate!
+                    self.evaluation["timelog"].append(query_duration)
+                    self.evaluation["task"].append('object')
+                    self.evaluation["response"].append(self.last_pointed_object)
 
 
                 # Draw bounding boxes and labels on the frame
@@ -609,15 +602,20 @@ class HandGestureApp:
                 self.last_pointed_color = None
                 # self.score = None
                 print("Triggering color detection...")
-                query_start = time.time()
+
+                if self.debug:
+                    query_start = time.time()
+
                 self.check_point_within_objects(frame, frame_rgb, color_detection=True)
-                query_end = time.time()
-                query_duration = query_end - query_start
-                self.evaluation["ID"].append(self.participant_id)
-                self.evaluation["version"].append('speech')  # Different for alternate version to evaluate!
-                self.evaluation["timelog"].append(query_duration)
-                self.evaluation["task"].append('color')
-                self.evaluation["response"].append(self.last_pointed_color)
+
+                if self.debug:
+                    query_end = time.time()
+                    query_duration = query_end - query_start
+                    self.evaluation["ID"].append(self.participant_id)
+                    self.evaluation["version"].append('speech')  # Different for alternate version to evaluate!
+                    self.evaluation["timelog"].append(query_duration)
+                    self.evaluation["task"].append('color')
+                    self.evaluation["response"].append(self.last_pointed_color)
 
                 # Draw bounding boxes and labels on the frame
                 if self.display_boxes and self.detection_box is not None:
@@ -648,7 +646,7 @@ class HandGestureApp:
             # Display the frame 
             cv2.imshow('Frame', frame)
 
-            # Reset the trigger flags if they were activated
+            # Reset the trigger flags if they were activated (to avoid multiple triggers)
             self.trigger_all_objects_detection = False
             self.trigger_object_detection = False
             self.trigger_color_detection = False
@@ -657,10 +655,12 @@ class HandGestureApp:
             # Check for 'q' key press to exit the application
             if cv2.waitKey(1) & 0xFF == ord('q'):
 
-                # Save data for evaluation before leaving
-                df_evaluation = pd.DataFrame.from_dict(self.evaluation)
-                df_evaluation.to_csv(f"{self.participant_id}_{self.evaluation['version'][0]}.csv")  # save it as separate file
-                df_evaluation.to_csv('main_evaluation.csv', mode='a', index=True, header=False) # append data to the main file
+                if self.debug:
+                    print("Saving evaluation data...")
+                    # Save data for evaluation before leaving
+                    df_evaluation = pd.DataFrame.from_dict(self.evaluation)
+                    df_evaluation.to_csv(f"{self.participant_id}_{self.evaluation['version'][0]}.csv")  # save it as separate file
+                    df_evaluation.to_csv('./utils/main_evaluation.csv', mode='a', index=True, header=False) # append data to the main file
 
                 self.running = False  # Signal to stop the threads
                 break
@@ -675,5 +675,5 @@ class HandGestureApp:
 
 
 # Run the HandGestureApp
-app = HandGestureApp("./model/gesture_recognizer.task", debug=False, display_boxes=False)
+app = HandGestureApp("./utils/model/gesture_recognizer.task", debug=False, display_boxes=False)
 app.run()
