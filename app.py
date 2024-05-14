@@ -21,7 +21,7 @@ class HandGestureApp:
         debug (bool): Whether to run the application in debug mode. Default is False.
         detection_threshold (float): The object detection threshold. Default is 0.8.
     """
-    def __init__(self, model_gesture_path, debug=False, detection_threshold=0.8, display_boxes=False):
+    def __init__(self, model_gesture_path, debug=False, detection_threshold=0.5, display_boxes=False):
         # General parameters
         self.model_gesture_path = model_gesture_path  # Path to the gesture recognition model
         self.running = True  # Initialize running flag
@@ -385,112 +385,64 @@ class HandGestureApp:
         # Calculate the average color of the object region
         avg_color = np.mean(object_region, axis=(0, 1))
 
-        # print(avg_color)
+        print(avg_color)
 
-        # Convert the average color to BGR format
-        # avg_color_rgb = np.array(avg_color, dtype=np.uint8)
+        rgb_value = tuple(int(round(x)) for x in avg_color)
 
+        def rgb_to_hsl(rgb):
+            r, g, b = rgb[0] / 255.0, rgb[1] / 255.0, rgb[2] / 255.0
+            cmax = max(r, g, b)
+            cmin = min(r, g, b)
+            delta = cmax - cmin
 
-        # TODO: TEST HERE
+            # Hue calculation
+            if delta == 0:
+                h = 0
+            elif cmax == r:
+                h = 60 * (((g - b) / delta) % 6)
+            elif cmax == g:
+                h = 60 * (((b - r) / delta) + 2)
+            else:
+                h = 60 * (((r - g) / delta) + 4)
 
-        colors = {
-            'red': (255, 0, 0),
-            'green': (0, 255, 0),
-            'blue': (0, 0, 255),
-            'yellow': (255, 255, 0),
-            'cyan': (0, 255, 255),
-            'magenta': (255, 0, 255),
-            'white': (255, 255, 255),
-            'black': (0, 0, 0)
-        }
+            # Lightness calculation
+            l = (cmax + cmin) / 2
 
-        min_distance = float('inf')
-        closest_color = None
+            # Saturation calculation
+            if delta == 0:
+                s = 0
+            else:
+                s = delta / (1 - abs(2 * l - 1))
 
-        for name, color in colors.items():
-            distance = np.linalg.norm(np.array(avg_color) - np.array(color))
-            if distance < min_distance:
-                min_distance = distance
-                closest_color = name
+            return h, s, l
 
-        return closest_color
+        def hsl_to_color_name(hsl):
+            h, s, l = hsl
+            if s < 0.1:
+                return "gray" if l < 0.5 else "white"
+            if l < 0.2:
+                return "black"
+            if 0 <= h < 30:
+                return "red"
+            if 30 <= h < 90:
+                return "yellow"
+            if 90 <= h < 150:
+                return "green"
+            if 150 <= h < 210:
+                return "cyan"
+            if 210 <= h < 270:
+                return "blue"
+            if 270 <= h < 330:
+                return "magenta"
+            return "red"  # Wrap around for hues close to red
 
-        # colors = {
-        #     'red': (255, 0, 0),
-        #     'green': (0, 255, 0),
-        #     'blue': (0, 0, 255),
-        #     'yellow': (255, 255, 0),
-        #     'cyan': (0, 255, 255),
-        #     'magenta': (255, 0, 255),
-        #     'white': (255, 255, 255),
-        #     'black': (0, 0, 0)
-        #     # Add more color definitions as needed
-        # }
-        #
-        # min_distance = float('inf')
-        # closest_color = None
-        #
-        # for name, color in colors.items():
-        #     distance = sum((a - b) ** 2 for a, b in zip(avg_color, color)) ** 0.5
-        #     if distance < min_distance:
-        #         min_distance = distance
-        #         closest_color = name
-        #
-        # return closest_color
+        def rgb_to_color_name(rgb):
+            hsl = rgb_to_hsl(rgb)
+            return hsl_to_color_name(hsl)
 
-        # colors = {
-        #     "red": [0, 0, 255],
-        #     "orange": [0, 165, 255],
-        #     "yellow": [0, 255, 255],
-        #     "green": [0, 128, 0],
-        #     "blue": [255, 0, 0],
-        #     "purple": [128, 0, 128],
-        #     "pink": [255, 192, 203],
-        #     "white": [255, 255, 255],
-        #     "grey": [128, 128, 128],
-        #     "black": [0, 0, 0]
-        # }
-        #
-        # min_distance = float('inf')
-        # closest_color = None
-        #
-        # for color_name, color_value in colors.items():
-        #     distance = np.linalg.norm(np.array(color_value) - np.array(avg_color_bgr))
-        #     if distance < min_distance:
-        #         min_distance = distance
-        #         closest_color = color_name
-        #
-        # return closest_color
+        color_name = rgb_to_color_name(rgb_value)
+        return color_name
 
-        # colors = {
-        #     "red": ([0, 0, 50], [70, 70, 255]),
-        #     "orange": ([0, 50, 150], [150, 150, 255]),
-        #     "yellow": ([0, 100, 100], [150, 255, 255]),
-        #     "green": ([0, 50, 0], [100, 255, 100]),
-        #     "blue": ([100, 0, 0], [255, 100, 100]),
-        #     "purple": ([70, 0, 70], [255, 70, 255]),
-        #     "pink": ([150, 50, 150], [255, 180, 255]),
-        #     "white": ([180, 180, 180], [255, 255, 255]),
-        #     "grey": ([100, 100, 100], [180, 180, 180]),
-        #     "black": ([0, 0, 0], [50, 50, 50])
-        # }
-        #
-        # for color, (lower, upper) in colors.items():
-        #     lower = np.array(lower, dtype=np.uint8)
-        #     upper = np.array(upper, dtype=np.uint8)
-        #     if cv2.inRange(avg_color_bgr, lower, upper).all():
-        #         return str(color)
-        # return "unknown"
-
-        # # Sample the BGR color in ranges to return arbitrary categories
-        # blue, green, red = avg_color_bgr
-        #
-        # if red >= green and red >= blue:
-        #     return 'Red'
-        # elif blue > red and blue > green:
-        #     return 'Blue'
-        # else:
-        #     return 'Green'
 
     def draw_box(self, frame, box, label, score=None):
         # print('box', box)
@@ -518,10 +470,10 @@ class HandGestureApp:
             text_x = frame.shape[1] - text_width
 
         # Draw the label text; only include score if it is set to a value
-        # if score is not None:
-        #     cv2.putText(frame, f"{label}: {score:.2f}", (text_x, text_y), font, text_scale, (0, 255, 0), thickness)
-        # else:
-        #     cv2.putText(frame, f"{label}", (text_x, text_y), font, text_scale, (0, 255, 0), thickness)
+        if score is not None:
+            cv2.putText(frame, f"{label}: {score:.2f}", (text_x, text_y), font, text_scale, (0, 255, 0), thickness)
+        else:
+            cv2.putText(frame, f"{label}", (text_x, text_y), font, text_scale, (0, 255, 0), thickness)
 
         # Start the countdown
         for i in range(self.COUNTDOWN_TIME, 0, -1):
