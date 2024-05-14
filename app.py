@@ -12,39 +12,39 @@ import sounddevice as sd
 import queue
 
 
-class HandGestureApp:
+class VuBot:
     """
-    HandGestureApp class to run the application.
+    VuBot class to run the application.
     Combines MediaPipe gesture recognition with DETR object detection.
 
     Args:
         model_gesture_path (str): The path to the gesture recognition model.
         debug (bool): Whether to run the application in debug mode. Default is False.
         detection_threshold (float): The object detection threshold. Default is 0.8.
+        display_boxes (bool): Whether to display bounding boxes around detected objects. Default is False.
     """
     def __init__(self, model_gesture_path, debug=False, detection_threshold=0.8, display_boxes=False):
-
         # General parameters
         self.model_gesture_path = model_gesture_path  # Path to the gesture recognition model
         self.running = True  # Initialize running flag
+        self.debug = debug  # Debug mode flag
+        self.width = 0  # Initialize frame width
+        self.height = 0  # Initialize frame height
+        self.display_boxes = display_boxes  # Flag for displaying the square boxes around detected objects
+        self.detection_threshold = detection_threshold  # Object detection threshold
 
         # Gesture and Object Detection parameters
         self.index_coordinates = None  # Initialize index finger coordinates
         self.middle_finger_coordinates = None  # Initialize middle finger coordinates
-        self.width = 0  # Initialize frame width
-        self.height = 0  # Initialize frame height
         self.finger_detected = False  # Initialize finger detection status
         self.close_fist_detected = False  # Initialize closed fist detection status
         self.victory_detected = False  # Initialize victory gesture detection status
-        self.debug = debug  # Debug mode flag
-        self.detection_threshold = detection_threshold  # Object detection threshold
         self.trigger_object_detection = False  # Flag to trigger object detection
         self.trigger_color_detection = False  # Flag to trigger color detection
         self.last_pointed_object = None  # Last detected object name
         self.last_pointed_color = None  # Last detected object color
         self.trigger_all_objects_detection = False # Flag to trigger all objects detection
         self.detection_box = None  # Variable to store the square boxes around detected objects
-        self.display_boxes = display_boxes  # Flag for displaying the square boxes around detected objects
 
         # Initialize DETR model
         self.processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-50")
@@ -59,15 +59,12 @@ class HandGestureApp:
         )
         self.recognizer = mp.tasks.vision.GestureRecognizer.create_from_options(options)
 
-        # Load Whisper model
-        self.whisper_model = whisper.load_model("small.en")  # Load Whisper model
-
         # Constant sentence to trigger actions
         self.OD_POINTED_TRIGGERS = ["help object", "identify object"]
         self.OD_ALL_OBJECTS_TRIGGERS = ["highlight items", "all items", "every item"]
         self.POINTED_COLOR_TRIGGER = ["help color", "identify color"]
-
-        self.COUNTDOWN_TIME = 3  # Countdown time for when capturing all objects
+        # Countdown time for when capturing all objects
+        self.COUNTDOWN_TIME = 3  
 
         if self.debug:
             input("Start screen recording! (press 'y' when done) ")
@@ -88,15 +85,6 @@ class HandGestureApp:
         """
 
         def live_audio_callback(indata, frames, time, status):
-            """
-            Live audio callback function to put microphone data into a queue.
-
-            Args:
-                indata (numpy.ndarray): The input audio data.
-                frames (int): The number of frames.
-                time (sounddevice.CallbackTimeInfo): The time information.
-                status (sounddevice.CallbackFlags): The callback flags.
-            """
             if status:
                 print(status)
             global audio_queue
@@ -104,10 +92,9 @@ class HandGestureApp:
 
         # Initialize the Whisper model
         model = whisper.load_model("small.en")
-
-        # Define the sample rate and block size
-        sample_rate = 16000 # don't change this
-        block_size = 16000 * 3  # number of audio samples collected before the buffer is transcribed - 8000 processes every 0.5 s
+        sample_rate = 16000 
+         # number of audio samples collected before the buffer is transcribed - 8000 processes every 0.5 s
+        block_size = 16000 * 3 
 
         # Create a queue to handle real time audio data
         global audio_queue
@@ -119,21 +106,18 @@ class HandGestureApp:
                 while self.running:
                     audio_chunk = audio_queue.get()
                     if audio_chunk is not None:
-                        # Convert audio chunk to numpy array
+                        # Transcribe the audio chunk
                         audio_np = np.concatenate(audio_chunk)
-                        # Transcribe audio
                         result = model.transcribe(audio_np, temperature=0)
 
                         # Format the transcription
                         current_transcription = result['text'].lower().strip()
-                        # Remove special characters
                         current_transcription = ''.join(e for e in current_transcription if e.isalnum() or e.isspace())
 
                         if self.debug:
                             print(f"Transcription: {current_transcription}")
 
-
-                        # trigger for pointed object detection
+                        # Trigger for pointed object detection
                         if any(phrase in current_transcription for phrase in self.OD_POINTED_TRIGGERS):
                             # Lock to make sure only one thread is updating the trigger flag
                             with threading.Lock():
@@ -143,7 +127,7 @@ class HandGestureApp:
                                 time.sleep(2)
                                 self.current_transcription = ""
 
-                        # trigger for all objects detection
+                        # Trigger for all objects detection
                         elif any(phrase in current_transcription for phrase in self.OD_ALL_OBJECTS_TRIGGERS):
                             # lock to make sure only one thread is updating the trigger flag
                             with threading.Lock():
@@ -153,7 +137,7 @@ class HandGestureApp:
                                 time.sleep(2)
                                 self.current_transcription = ""
 
-                        # trigger for pointed color detection
+                        # Trigger for pointed color detection
                         elif any(phrase in current_transcription for phrase in self.POINTED_COLOR_TRIGGER):
                             # lock to make sure only one thread is updating the trigger flag
                             with threading.Lock():
@@ -171,21 +155,15 @@ class HandGestureApp:
     def frame_callback(self, result, output_image, timestamp_ms):
         """
         Callback function to process the result of the gesture recognizer, every time a result is received (every frame).
-        It prints the index tip coordinates and updates the status based on the detected finger. 
-        It also checks if the index finger is pointing inside any detected object.
+        It updates the status based on the detected finger.
         
         Args:
             result (mp.tasks.vision.GestureRecognizerResult): The result of the gesture recognizer.
             output_image (mp.Image): The output image.
             timestamp_ms (int): The timestamp in milliseconds.
-            
-        Returns:    
-            str: The result of the object detection.        
         """
 
-        # Check if the hand landmarks are detected
         if result.hand_landmarks:
-            # Get the gesture type, we assume the first gesture detected is the relevant one
             gesture = result.gestures[0][0].category_name
 
             if gesture == 'Pointing_Up':
@@ -196,14 +174,11 @@ class HandGestureApp:
                 self.close_fist_detected = False
                 self.victory_detected = False
 
-            # Check if the gesture is a closed fist to trigger all objects detection
-            # we use the trigger_all_objects flag to avoid multiple triggers (it is reset when the gesture changes)
             elif gesture == 'Closed_Fist' :
                 self.close_fist_detected = True
                 self.finger_detected = False
                 self.victory_detected = False
 
-            # Check for victory sign gesture and get index and middle fingertip coordinates
             elif gesture == 'Victory':
                 # TODO - victory
                 index_coordinates = (result.hand_landmarks[0][8].x, result.hand_landmarks[0][8].y)
@@ -231,10 +206,8 @@ class HandGestureApp:
         Check if the index finger is pointing inside any detected object.
         
         Args:
-            frame (numpy.ndarray): The input frame, it is used where you are working directly 
-                with OpenCV for display and drawing operations on the image.
-            frame_rgb (numpy.ndarray): The RGB frame, it is used to process the image 
-                with MediaPipe after conversion to ensure compatibility and accuracy of gesture recognition analyses.
+            frame (numpy.ndarray): The input frame.
+            frame_rgb (numpy.ndarray): The RGB frame.
             color_detection (bool): Option to indicate the color detection mode.
             
         Returns:
@@ -252,8 +225,6 @@ class HandGestureApp:
         # Process the image for object detection
         inputs = self.processor(images=frame_rgb, return_tensors="pt")
         outputs = self.model_DETR(**inputs)
-
-        # Decode predictions from DETR model
         target_sizes = torch.tensor([frame.shape[:2]])
         results = self.processor.post_process_object_detection(outputs, target_sizes=target_sizes)[0]
 
@@ -270,9 +241,8 @@ class HandGestureApp:
             
             # Check if the object detection score is above a threshold
             if score > self.detection_threshold:
-                # Convert bounding box to integer format
                 box = box.int().tolist()
-
+                
                 # Draw bounding box (debug mode)
                 if self.debug:
                     cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)
@@ -287,9 +257,8 @@ class HandGestureApp:
                     if color_detection:
                         pointed_color = self.sample_color_from_object(frame_rgb, box)
 
-                    # Display the object name (debug mode)
+                    # Put text with the detected object name and save a screenshot
                     if self.debug:
-                        # Put text with the detected object name and save a screenshot
                         cv2.putText(frame, label_name, (box[0], box[1] - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
                         cv2.imwrite(f'./image/screen_{time.time()}.png', frame)
 
@@ -297,7 +266,7 @@ class HandGestureApp:
             self.last_pointed_object = pointed_object
             self.detection_box = box
 
-            # Return adn print the detected object in object detection mode
+            # Return and print the name of the object if the color detection mode is off
             if not color_detection:
                 print(f"Selected object: {pointed_object}")
                 return pointed_object
@@ -318,22 +287,18 @@ class HandGestureApp:
         Capture all detected objects in the frame.
         
         Args:
-            frame (numpy.ndarray): The input frame, it is used where you are working directly 
-                with OpenCV for display and drawing operations on the image.
-            frame_rgb (numpy.ndarray): The RGB frame, it is used to process the image 
-                with MediaPipe after conversion to ensure compatibility and accuracy of gesture recognition analyses.
+            frame (numpy.ndarray): The input frame.
+            frame_rgb (numpy.ndarray): The RGB frame.
         """
 
         # Process the image for object detection
         inputs = self.processor(images=frame_rgb, return_tensors="pt")
         outputs = self.model_DETR(**inputs)
-
-        # Decode predictions from DETR model
         target_sizes = torch.tensor([frame.shape[:2]])
         results = self.processor.post_process_object_detection(outputs, target_sizes=target_sizes)[0]
 
-        object_counts = {} # Initialize object counts
-        bounding_boxes = [] # Initialize bounding boxes
+        object_counts = {} 
+        bounding_boxes = [] 
 
         # Iterate over the detected objects
         for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
@@ -343,29 +308,21 @@ class HandGestureApp:
             if label_name == "person":
                 continue
             
-            # Check if the object detection score is above a threshold
             if score > self.detection_threshold:
 
                 # Get score value from tensor
                 score = score.item()
-
-                # Convert bounding
                 box = box.int().tolist()
-
-                # save bounding box and label
                 bounding_boxes.append((box, label_name, score))
 
-                # Update the object counts
                 if label_name in object_counts:
                     object_counts[label_name] += 1
                 else:
                     object_counts[label_name] = 1
 
-
-        # Convert the dictionary to a list of dictionaries
         detected_objects = [{"object": obj, "count": count} for obj, count in object_counts.items()]
-
         return detected_objects, bounding_boxes
+    
 
     def sample_color_from_object(self, frame_rgb, box):
         """
@@ -373,19 +330,17 @@ class HandGestureApp:
 
         Args:
             frame_rgb (numpy.ndarray): The RGB frame.
-            box (list): The bounding box coordinates of the object (in format [x_min, y_min, x_max, y_max]).
+            box (list): The bounding box coordinates of the object.
 
         Returns:
-            tuple: The average color sampled from the object region (in BGR format).
+            str: The average color sampled from the object region.
         """
         x_min, y_min, x_max, y_max = box
 
         # Extract the region of interest (object) from the frame
         object_region = frame_rgb[y_min:y_max, x_min:x_max]
-
         # Calculate the average color of the object region
         avg_color = np.mean(object_region, axis=(0, 1))
-
         rgb_value = tuple(int(round(x)) for x in avg_color)
 
         def rgb_to_hsl(rgb):
@@ -444,8 +399,6 @@ class HandGestureApp:
 
 
     def draw_box(self, frame, box, label, score=None):
-        # print('box', box)
-
         cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)
 
         # Calculate text size and position for checking if it goes beyond the image borders
@@ -456,7 +409,7 @@ class HandGestureApp:
 
         # Position the text above the bounding box, adjusting as needed
         text_x = box[0]
-        text_y = box[1] - 10  # default position above the bounding box
+        text_y = box[1] - 10 
 
         # Ensure the text doesn't go beyond any image borders
         if text_x < 0:
@@ -468,7 +421,6 @@ class HandGestureApp:
         if text_x + text_width > frame.shape[1]:
             text_x = frame.shape[1] - text_width
 
-        # Draw the label text; only include score if it is set to a value
         if score is not None:
             cv2.putText(frame, f"{label}: {score:.2f}", (text_x, text_y), font, text_scale, (0, 255, 0), thickness)
         else:
@@ -476,17 +428,11 @@ class HandGestureApp:
 
         # Start the countdown
         for i in range(self.COUNTDOWN_TIME, 0, -1):
-            # Create a copy of the frame with bounding boxes drawn
             frame_with_boxes = frame.copy()
-
-            # Draw the countdown text
             text = f"{i}"
             cv2.putText(frame_with_boxes, text, (int(self.width / 2), int(self.height / 2)),
                         cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 235, 255), thickness=4)
-
             cv2.imshow('Frame', frame_with_boxes)
-
-            # Wait for 1 second
             cv2.waitKey(1000)
 
 
@@ -496,7 +442,6 @@ class HandGestureApp:
         """
 
         if self.debug:
-            # print sounddevice info
             print(sd.query_devices())
 
         # Set the default input device (microphone)
@@ -537,7 +482,7 @@ class HandGestureApp:
 
             # Process gesture recognition
             # This will trigger the frame_callback function in asynchronous mode 
-            # The callback function will update the index finger coordinates and status
+            # The callback function will update the finger coordinates and status
             self.recognizer.recognize_async(mp_image, frame_timestamp_ms)
 
             # Display finger detection status
@@ -665,6 +610,6 @@ class HandGestureApp:
         speech_thread.join()
 
 
-# Run the HandGestureApp
-app = HandGestureApp("./utils/model/gesture_recognizer.task", debug=False, display_boxes=False)
+# Run VuBot application
+app = VuBot("./utils/model/gesture_recognizer.task", debug=False, display_boxes=False)
 app.run()
