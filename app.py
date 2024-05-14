@@ -509,7 +509,9 @@ class VuBot:
 
 
             # Check if the condition for launching the single object detection are met
-            if self.trigger_object_detection and self.victory_detected or self.trigger_object_detection and self.finger_detected:
+            if (self.trigger_object_detection and self.victory_detected or 
+                self.trigger_object_detection and self.finger_detected or
+                cv2.waitKey(1) & 0xFF == ord('o') and self.finger_detected):
                 self.last_pointed_object = None
                 self.last_pointed_color = None
                 print("Triggering object detection...")
@@ -535,8 +537,14 @@ class VuBot:
                     label = self.last_pointed_object
                     self.draw_box(frame, box, label)
 
+                # TODO - Delete if not evaluation version
+                time.sleep(2)
+
+
             # Check if the condition for launching the color detection are met
-            elif self.trigger_color_detection and self.victory_detected or self.trigger_color_detection and self.finger_detected:
+            elif (self.trigger_color_detection and self.victory_detected or
+                  self.trigger_color_detection and self.finger_detected or
+                  cv2.waitKey(1) & 0xFF == ord('c') and self.finger_detected):
                 self.last_pointed_object = None
                 self.last_pointed_color = None
                 print("Triggering color detection...")
@@ -560,6 +568,9 @@ class VuBot:
                     box = self.detection_box
                     label = self.last_pointed_color
                     self.draw_box(frame, box, label)
+
+                # TODO - Delete if not evaluation version
+                time.sleep(2)
 
             # Check if the condition for launching the detection of all objects are met
             elif self.trigger_all_objects_detection and self.close_fist_detected:
