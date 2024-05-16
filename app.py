@@ -21,16 +21,14 @@ class VuBot:
         model_gesture_path (str): The path to the gesture recognition model.
         debug (bool): Whether to run the application in debug mode. Default is False.
         detection_threshold (float): The object detection threshold. Default is 0.8.
-        display_boxes (bool): Whether to display bounding boxes around detected objects. Default is False.
     """
-    def __init__(self, model_gesture_path, debug=False, detection_threshold=0.8, display_boxes=False):
+    def __init__(self, model_gesture_path, debug=False, detection_threshold=0.8):
         # General parameters
         self.model_gesture_path = model_gesture_path  # Path to the gesture recognition model
         self.running = True  # Initialize running flag
         self.debug = debug  # Debug mode flag
         self.width = 0  # Initialize frame width
         self.height = 0  # Initialize frame height
-        self.display_boxes = display_boxes  # Flag for displaying the square boxes around detected objects
         self.detection_threshold = detection_threshold  # Object detection threshold
 
         # Gesture and Object Detection parameters
@@ -44,7 +42,6 @@ class VuBot:
         self.last_pointed_object = None  # Last detected object name
         self.last_pointed_color = None  # Last detected object color
         self.trigger_all_objects_detection = False # Flag to trigger all objects detection
-        self.detection_box = None  # Variable to store the square boxes around detected objects
 
         # Initialize DETR model
         self.processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-50")
@@ -60,9 +57,9 @@ class VuBot:
         self.recognizer = mp.tasks.vision.GestureRecognizer.create_from_options(options)
 
         # Constant sentence to trigger actions
-        self.OD_POINTED_TRIGGERS = ["help object", "identify object"]
+        self.OD_POINTED_TRIGGERS = ["help object", "identify object", "object"]
         self.OD_ALL_OBJECTS_TRIGGERS = ["highlight items", "all items", "every item"]
-        self.POINTED_COLOR_TRIGGER = ["help color", "identify color"]
+        self.POINTED_COLOR_TRIGGER = ["help color", "identify color", "color"]
         # Countdown time for when capturing all objects
         self.COUNTDOWN_TIME = 3  
 
@@ -92,8 +89,7 @@ class VuBot:
 
         # Initialize the Whisper model
         model = whisper.load_model("small.en")
-        sample_rate = 16000 
-         # number of audio samples collected before the buffer is transcribed - 8000 processes every 0.5 s
+        sample_rate = 16000  # number of audio samples collected before the buffer is transcribed - 8000 processes every 0.5 s
         block_size = 16000 * 3 
 
         # Create a queue to handle real time audio data
@@ -129,7 +125,7 @@ class VuBot:
 
                         # Trigger for all objects detection
                         elif any(phrase in current_transcription for phrase in self.OD_ALL_OBJECTS_TRIGGERS):
-                            # lock to make sure only one thread is updating the trigger flag
+                            # Lock to make sure only one thread is updating the trigger flag
                             with threading.Lock():
                                 self.trigger_all_objects_detection = True
                                 print("Heard Trigger phrase for all objects detection...")
@@ -139,7 +135,7 @@ class VuBot:
 
                         # Trigger for pointed color detection
                         elif any(phrase in current_transcription for phrase in self.POINTED_COLOR_TRIGGER):
-                            # lock to make sure only one thread is updating the trigger flag
+                            # Lock to make sure only one thread is updating the trigger flag
                             with threading.Lock():
                                 self.trigger_color_detection = True
                                 print("Heard Trigger phrase for color detection...")
@@ -264,7 +260,6 @@ class VuBot:
 
         if pointed_object is not None:
             self.last_pointed_object = pointed_object
-            self.detection_box = box
 
             # Return and print the name of the object if the color detection mode is off
             if not color_detection:
@@ -289,6 +284,10 @@ class VuBot:
         Args:
             frame (numpy.ndarray): The input frame.
             frame_rgb (numpy.ndarray): The RGB frame.
+
+        Returns:
+            list: A list of dictionaries, each containing an object label and its count in the frame.
+            list: A list of tuples, each containing bounding box coordinates, label, and confidence score of the detected object.
         """
 
         # Process the image for object detection
@@ -530,13 +529,6 @@ class VuBot:
                     self.evaluation["task"].append('object')
                     self.evaluation["response"].append(self.last_pointed_object)
 
-
-                # Draw bounding boxes and labels on the frame
-                if self.display_boxes and self.detection_box is not None:
-                    box = self.detection_box
-                    label = self.last_pointed_object
-                    self.draw_box(frame, box, label)
-
                 # TODO - Delete if not evaluation version
                 time.sleep(2)
 
@@ -562,12 +554,6 @@ class VuBot:
                     self.evaluation["timelog"].append(query_duration)
                     self.evaluation["task"].append('color')
                     self.evaluation["response"].append(self.last_pointed_color)
-
-                # Draw bounding boxes and labels on the frame
-                if self.display_boxes and self.detection_box is not None:
-                    box = self.detection_box
-                    label = self.last_pointed_color
-                    self.draw_box(frame, box, label)
 
                 # TODO - Delete if not evaluation version
                 time.sleep(2)
@@ -622,5 +608,5 @@ class VuBot:
 
 
 # Run VuBot application
-app = VuBot("./utils/model/gesture_recognizer.task", debug=False, display_boxes=False)
+app = VuBot("./utils/model/gesture_recognizer.task", debug=True)
 app.run()
