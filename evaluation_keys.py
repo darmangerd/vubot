@@ -386,13 +386,13 @@ class VuBot:
         def hsl_to_color_name(hsl):
             h, s, l = hsl
             if s < 0.1:
-                return "white" if l < 0.5 else "white"
+                return "white" if l < 0.5 else "grey"
             if l < 0.2:
-                return "grey"
+                return "navy"
             if 0 <= h < 30:
-                return "maroon"
+                return "pink"
             if 30 <= h < 90:
-                return "orange"
+                return "red"
             if 90 <= h < 150:
                 return "yellow"
             if 150 <= h < 210:

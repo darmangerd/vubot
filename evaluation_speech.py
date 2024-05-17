@@ -236,17 +236,17 @@ class VuBot:
                 continue
             elif label_name == "apple":
                 label_name = "ball"
-            elif label_name == "lemon":
-                label_name = "ball"
+            elif label_name == "orange":
+                label_name = "soap"
             elif label_name == "banana":
                 label_name = "pencil case"
             elif label_name == "scissors":
                 label_name = "tongs"
-            elif label_name == "cell phone":
+            elif label_name == "cell phone" or label_name == "calculator":
                 label_name = "calculator"
             elif label_name == "book":
                 label_name = "tablet"
-            elif label_name == "spoon":
+            elif label_name == "spoon" or label_name == 'fork':
                 label_name = "pen"
 
             # Check if the object detection score is above a threshold
@@ -386,9 +386,9 @@ class VuBot:
         def hsl_to_color_name(hsl):
             h, s, l = hsl
             if s < 0.1:
-                return "black" if l < 0.5 else "white"
-            if l < 0.2:
-                return "black"
+                return "white" if l < 0.7 else "cyan"
+            if l < 0.3:
+                return "white"
             if 0 <= h < 30:
                 return "orange"
             if 30 <= h < 90:
