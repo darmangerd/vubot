@@ -561,7 +561,7 @@ class VuBot:
                     query_end = time.time()
                     query_duration = query_end - query_start
                     self.evaluation["ID"].append(self.participant_id)
-                    self.evaluation["version"].append('speech')  # Different for alternate version to evaluate!
+                    self.evaluation["version"].append('keys')  # Different for alternate version to evaluate!
                     self.evaluation["timelog"].append(query_duration)
                     self.evaluation["task"].append('color')
                     self.evaluation["response"].append(self.last_pointed_color)
