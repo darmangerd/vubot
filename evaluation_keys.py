@@ -236,15 +236,15 @@ class VuBot:
                 continue
             elif label_name == "apple":
                 label_name = "ornament"
-            elif label_name == "lemon":
-                label_name = "lime"
             elif label_name == "banana":
-                label_name = "zucchini"
+                label_name = "candle"
+            elif label_name == "orange":
+                label_name = "candle"
             elif label_name == "scissors":
-                label_name = "fork"
-            elif label_name == "spoon":
-                label_name = "fork"
-            elif label_name == "cell phone":
+                label_name = "knife"
+            elif label_name == "spoon" or label_name == "fork":
+                label_name = "knife"
+            elif label_name == "cell phone" or label_name == "calculator":
                 label_name = "cell phone"
             elif label_name == "book":
                 label_name = "box"
@@ -254,10 +254,10 @@ class VuBot:
                 box = box.int().tolist()
                 
                 # Draw bounding box (debug mode)
-                if self.debug:
-                    cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)
-                    score = score.item()
-                    cv2.putText(frame, f"{label_name}: {score:.2f}", (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                # if self.debug:
+                #     cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)
+                #     score = score.item()
+                #     cv2.putText(frame, f"{label_name}: {score:.2f}", (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
                 # Check if the index finger is pointing inside the bounding box of a detected object
                 if box[0] <= index_x <= box[2] and box[1] <= index_y <= box[3]:
@@ -268,9 +268,9 @@ class VuBot:
                         pointed_color = self.sample_color_from_object(frame_rgb, box)
 
                     # Put text with the detected object name and save a screenshot
-                    if self.debug:
-                        cv2.putText(frame, label_name, (box[0], box[1] - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
-                        cv2.imwrite(f'./image/screen_{time.time()}.png', frame)
+                    # if self.debug:
+                    #     cv2.putText(frame, label_name, (box[0], box[1] - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
+                    #     cv2.imwrite(f'./image/screen_{time.time()}.png', frame)
 
         if pointed_object is not None:
             self.last_pointed_object = pointed_object
@@ -462,7 +462,7 @@ class VuBot:
 
         # Start the speech recognition thread
         speech_thread = threading.Thread(target=self.start_speech_recognition, daemon=True)
-        speech_thread.start()
+        # speech_thread.start()
         print("Speech recognition thread started.")
 
         # Capture video from webcam
