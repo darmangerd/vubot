@@ -175,8 +175,8 @@ class VuBot:
                 self.finger_detected = False
                 self.victory_detected = False
 
+            # Note : not final, need to be updated
             elif gesture == 'Victory':
-                # TODO - victory
                 index_coordinates = (result.hand_landmarks[0][8].x, result.hand_landmarks[0][8].y)
                 middle_finger_coordinates = (result.hand_landmarks[0][12].x, result.hand_landmarks[0][12].y)
                 self.index_coordinates = (int(index_coordinates[0] * self.width), int(index_coordinates[1] * self.height))
