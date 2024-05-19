@@ -1,7 +1,15 @@
 # VuBot
 
 ## Description
-...
+VuBot is an application that combines speech and gesture recognition to interact with objects in a real-time video feed. Using a webcam, users can point at objects and issue voice commands to perform actions such as detecting individual objects, recognizing all objects in the scene, or querying the color of a specific object. VuBot leverages powerful libraries and models like MediaPipe for gesture detection, OpenCV for video processing, and OpenAI whisper for capturing and processing voice commands.
+
+### Key Features
+- Gesture Recognition: Detects gestures such as pointing, closed fist, and victory using MediaPipe.
+- Speech Recognition: Processes voice commands to trigger actions like object detection and color recognition.
+- Object Detection: Identifies objects in the video feed and draws bounding boxes around them.
+- Color Recognition: Determines the color of objects by averaging the colors within the bounding boxes.
+  
+VuBot is designed to be intuitive and user-friendly, making it a versatile tool for various applications. 
 
 ## Models used
 - **Gesture Recognition**: The application uses the [MediaPipe library](https://ai.google.dev/edge/mediapipe/solutions/vision/gesture_recognizer) to recognize gestures. 
@@ -41,3 +49,7 @@ python app.py
   - **/utils/models**: Folder containing the gesture recognition model used in the project (mediapipe).
   - **/utils/main_evaluation.csv**: File containing the evaluation data for the project obtained during the evaluation phase.
 - **/docs**: Folder containing the project documentation.
+
+
+## Future Work
+Future enhancements include developing a mobile version, improving audio speech handling, adding more interaction methods, integrating a large language model (LLM) for richer interactions, and implementing features to remember and locate specific objects.
