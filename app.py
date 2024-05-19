@@ -59,7 +59,7 @@ class VuBot:
         # Constant sentence to trigger actions
         self.OD_POINTED_TRIGGERS = ["help object", "identify object", "object"]
         self.OD_ALL_OBJECTS_TRIGGERS = ["highlight items", "all items", "every item"]
-        self.POINTED_COLOR_TRIGGER = ["help color", "identify color", "color"]
+        self.POINTED_COLOR_TRIGGER = ["help color", "identify color", "color", "shade"]
         # Countdown time for when capturing all objects
         self.COUNTDOWN_TIME = 3  
 
