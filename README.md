@@ -40,3 +40,4 @@ python app.py
 - **/utils**: Folder containing the utility functions used in the project.
   - **/utils/models**: Folder containing the gesture recognition model used in the project (mediapipe).
   - **/utils/main_evaluation.csv**: File containing the evaluation data for the project obtained during the evaluation phase.
+- **/docs**: Folder containing the project documentation.
