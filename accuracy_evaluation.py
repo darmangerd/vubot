@@ -52,23 +52,32 @@ def compute_accuracy(df):
 
 def print_mean_accuracies(ttest_df):
     """
-    Print the mean accuracies for each version.
+    Print the mean accuracy for each task version.
     :param ttest_df: DataFrame, pivot table with accuracies for each version
     """
-    print(f"Mean accuracy keys task: {ttest_df['keys'].mean()}")
-    print(f"Mean accuracy speech task: {ttest_df['speech'].mean()}")
+    print(f"\nMean accuracy in keys task: {round(ttest_df['keys'].mean(), 3)} %")
+    print(f"Mean accuracy in speech task: {round(ttest_df['speech'].mean(), 3)} %")
+
+
+def print_std_accuracies(ttest_df):
+    """
+    Print the standard deviation accuracy for each task version.
+    :param ttest_df: DataFrame, pivot table with accuracies for each version
+    """
+    print(f"\nStandard deviation of accuracy in keys task: {round(ttest_df['keys'].std(), 3)} %")
+    print(f"Standard deviation of accuracy in speech task: {round(ttest_df['speech'].std(), 3)} %")
 
 
 def run_ttest(ttest_df):
     """
     Perform a paired t-test on the accuracies and print the result.
-    :param ttest_df: DataFrame, pivot table with accuracies for each version
+    :param ttest_df: DataFrame, pivot table with accuracies for each task version
     """
     t_stat, p_value = ttest_rel(ttest_df['keys'], ttest_df['speech'])
     if p_value < 0.05:
-        print(f"\nThe difference is statistically significant (p={round(p_value, 3)}).")
+        print(f"\nThe difference is statistically significant: t = {round(t_stat, 3)}, p = {round(p_value, 3)}")
     else:
-        print(f"\nThe difference is not statistically significant (p={round(p_value, 3)}).")
+        print(f"\nThe difference is not statistically significant: t = {round(t_stat, 3)}, p = {round(p_value, 3)}")
 
 
 def test_accuracy_difference(df):
@@ -80,6 +89,7 @@ def test_accuracy_difference(df):
     ttest_df = df_errors_by_participant_by_version.reset_index().pivot(index='ID', columns='version', values='accuracy')
 
     print_mean_accuracies(ttest_df)
+    print_std_accuracies(ttest_df)
     run_ttest(ttest_df)
 
 
