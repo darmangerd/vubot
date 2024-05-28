@@ -222,9 +222,37 @@ def evaluate_object_model_accuracy(df):
     evaluate_model_accuracy(df=df, model='object')
 
 
+def explore_dataset(df):
+    """
+    ...
+    :param df: DataFrame, processed input data
+    :return:
+    """
+    print(df)
+    # Plotting
+    fig, ax = plt.subplots(2, 1, figsize=(10, 8))
+
+    # Count of tasks
+    df['version'].value_counts().plot(kind='bar', color='skyblue', ax=ax[0])
+    ax[0].set_title('Total Queries')
+    ax[0].set_xlabel('Task')
+    ax[0].set_ylabel('Count')
+
+    # Proportion correct responses versus errors
+    df['error'].value_counts().plot(kind='pie', autopct='%1.1f%%', colors=['lightgreen', 'salmon'],
+                                    labels=['Correct Responses', 'Error'], ax=ax[1])
+    ax[1].set_title('Error Responses Distribution')
+
+    plt.tight_layout()
+    plt.show()
+
+
 def main():
     # Load the evaluation data
     df = accuracy_evaluation_df()
+
+    # Perform general data inspection
+    explore_dataset(df)
 
     # Run statistical analysis to compare the overall accuracy of the system in the two task versions
     print(f"\n\n")
