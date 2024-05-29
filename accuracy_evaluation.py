@@ -22,7 +22,7 @@ def add_error_column(df):
     return df['response'].apply(lambda x: x.startswith('error'))
 
 
-def accuracy_evaluation_df(path="utils/main_evaluation_accuracy.csv"):
+def accuracy_evaluation_df(path=r"utils/main_evaluation_accuracy.csv"):
     """
     Load and preprocess the accuracy evaluation data.
     :param path: str, path to the CSV file of the data recorded during trials
@@ -77,7 +77,7 @@ def compute_model_accuracy(df, model):
 
 def print_stats_accuracy(df, accuracy_variable, subject):
     """
-    Print the mean and standard deviation of the accuracy for a choosen subject.
+    Print the mean and standard deviation of the accuracy for a chosen subject.
     :param df: DataFrame, with metrics for the evaluation
     :param accuracy_variable: string, name of the df's column containing the accuracy values
     :param subject: string, name of the subject to print
