@@ -167,6 +167,7 @@ def evaluate_task_times(df):
     # Plot
     plot_bar_chart(df)
 
+
 def evaluate_runtime_metrics(df):
     """
     Statistical analysis of the query runtimes.
@@ -184,8 +185,9 @@ def evaluate_runtime_metrics(df):
     # Prepare object task t-test data
     object_df = prep_version_ttest_df(grouped_df, 'object')
 
-    # Print stats objects
-    print_stats_runtime(grouped_df[grouped_df['task'] == 'object'], 'mean', 'object recognition task', 's')
+    # Print stats about object recognition
+    print(f"\nStats: ")
+    print(object_df.describe())
 
     # Run t-test - object
     run_paired_ttest(object_df, 'keys', 'speech')
@@ -195,8 +197,9 @@ def evaluate_runtime_metrics(df):
     # Prepare color task t-test data
     color_df = prep_version_ttest_df(grouped_df, 'color')
 
-    # Print stats colors
-    print_stats_runtime(grouped_df[grouped_df['task'] == 'color'], 'mean', 'color recognition task', 's')
+    # Print stats about color recognition
+    print(f"\nStats:")
+    print(color_df.describe())
 
     # Run t-test - color
     run_paired_ttest(color_df, 'keys', 'speech')
