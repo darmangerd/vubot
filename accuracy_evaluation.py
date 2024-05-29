@@ -121,6 +121,7 @@ def test_accuracy_difference_tasks(df):
     print_stats_accuracy(ttest_df, 'speech', 'speech commands task')
     print_stats_accuracy(ttest_df, 'keys', 'key presses task')
     run_tasks_ttest(ttest_df, 'keys', 'speech')
+    return ttest_df
 
 
 def test_accuracy_significance_model(df, model):
@@ -148,8 +149,8 @@ def compare_task_accuracies_all_errors(df):
           f"\nError types: {', '.join([et.split('_')[1] for et in df[df['error']]['response'].unique()])}.")
 
     # Test for differences in accuracy between the two task versions
-    test_accuracy_difference_tasks(df)
-
+    analysis_df = test_accuracy_difference_tasks(df)
+    plot_mean_accuracy_per_task(analysis_df, plot_title='Mean Accuracy by Task Version (All Erorrs)')
 
 def compare_task_accuracies_specific_errors(df):
     """
@@ -166,7 +167,29 @@ def compare_task_accuracies_specific_errors(df):
           f"\nError types: {', '.join([et.split('_')[1] for et in df[df['error']]['response'].unique()])}.")
 
     # Test for differences in accuracy between the two task versions
-    test_accuracy_difference_tasks(df)
+    analysis_df = test_accuracy_difference_tasks(df)
+    plot_mean_accuracy_per_task(analysis_df, plot_title='Mean Accuracy by Task Version (Specific Erorrs)')
+
+
+def plot_mean_accuracy_per_task(df, plot_title):
+    # Compute means and standard deviations
+    means = [df['keys'].mean(), df['speech'].mean()]
+    stds = [df['keys'].std(), df['speech'].std()]
+
+    fig, ax = plt.subplots(figsize=(8, 7))
+
+    bar_width = 0.75
+    labels = ['Keys', 'Speech']
+    colors = get_plot_colors_versions()
+
+    ax.bar(labels, means, yerr=stds, capsize=5, color=colors, width=bar_width)
+    ax.set_xlabel('Task Version')
+    ax.set_yticks(np.arange(0, 120, 20))
+    ax.set_xlim(-0.6, 1.6)
+    ax.set_ylabel('Mean Accuracy %')
+    fig.suptitle(plot_title)
+
+    plt.show()
 
 
 def evaluate_model_accuracy(df, model):
@@ -255,8 +278,7 @@ def accuracy_eval_barplot(df, y_metric):
 
     fig, ax = plt.subplots(figsize=(10, 6))
     bar_width = 0.35
-    colors = ['#1D2F6F', '#8390FA']
-    # colors = ['#1c6f1c', '#83fa83']  # green shade
+    colors = get_plot_colors_versions()
 
     # Create bars for each version and each participant
     for i, version in enumerate(versions):
@@ -270,6 +292,10 @@ def accuracy_eval_barplot(df, y_metric):
     ax.legend(title='Version')
 
     plt.show()
+
+
+def get_plot_colors_versions():
+    return ['#1D2F6F', '#8390FA']
 
 
 def set_accuracy_eval_barplot_labels(ax, metric):
@@ -300,7 +326,7 @@ def main():
     df = accuracy_evaluation_df()
 
     # Perform general data inspection
-    explore_dataset(df)
+    # explore_dataset(df)
 
     # Run statistical analysis to compare the overall accuracy of the system in the two task versions
     print(f"\n\n")
