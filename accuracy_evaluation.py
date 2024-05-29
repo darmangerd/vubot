@@ -251,9 +251,6 @@ def accuracy_eval_barplot(df, y_metric):
     """
     id = df.index.unique()
     versions = df.columns.unique()
-    print(
-        f"{versions = }"
-    )
     index = np.arange(len(id))
 
     fig, ax = plt.subplots(figsize=(10, 6))
