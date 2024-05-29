@@ -29,22 +29,18 @@ def prep_task_time_ttest_df(df,verbose=True):
     """
     ttest_df = df.pivot(index='Participant', columns='Version', values='Task Length Decimal')
     if verbose:
-        print(ttest_df)
+        print(f"\n{ttest_df}")
     return ttest_df
 
 def completed_ratio(df, version):
     """
-    Calculates and prints the number of completed/incomplete tasks for a specified version.
+    Calculates and prints the number of participants that completed the tasks of a specified version.
     :param df: imported task times DataFrame
     :param version: str, version of the task, either 'Keys' or 'Speech'
     """
     df = df[df['Version'] == version]['Task Completed']
     completed = df.sum()
-    incomplete = len(df) - completed
-
-    print(f"#### COMPLETED {version.upper()} ####")
-    print(f"Completed: {completed}")
-    print(f"Incomplete: {incomplete}")
+    print(f"{completed}/{len(df)} participants completed the {version.lower()} version task")
 
 def create_evaluation_df(df, verbose=True):
     """
@@ -69,7 +65,7 @@ def prep_version_ttest_df(df, task, verbose=True):
     df = df[df['task'] == task]
     ttest_df = df.pivot(index='ID', columns='version', values='mean')
     if verbose:
-        print(ttest_df)
+        print(f"\n{ttest_df}")
     return ttest_df
 
 def runtime_evaluation_df(path=r"utils/main_evaluation_accuracy.csv"):
@@ -106,7 +102,7 @@ def run_paired_ttest(ttest_df, variable1, variable2):
     t_statistic, p_value = ttest_rel(ttest_df[variable1], ttest_df[variable2])
 
     # Print the results
-    print(f"T-statistic: {round(t_statistic, 2)}")
+    print(f"\nT-statistic: {round(t_statistic, 2)}")
     print(f"P-value: {round(p_value, 2)}")
 
     # Interpret the results
@@ -140,7 +136,7 @@ def plot_bar_chart(df):
     # Adding labels, title, and legend
     ax.set_xlabel('Participant')
     ax.set_ylabel('Task Length (minutes)')
-    ax.set_title('Task Length by Participant and Version')
+    ax.set_title('Task Length by Participant and Task Version')
     ax.set_xticks(index + bar_width / 2)
     ax.set_xticklabels(id)
     ax.legend(title='Version')
@@ -153,21 +149,20 @@ def evaluate_task_times(df):
     Statistical analysis of the task times.
     :param df: DataFrame, imported task times df
     """
+    print(f"\n")
     print("#### EVALUATE TASK TIMES: KEYS VS. SPEECH ####")
 
     # Prepare the df for evaluation
     task_times = prep_task_time_ttest_df(df)
 
-    # Print stats
+    # Print stats and completed task ratios
     print_stats_runtime(df[df['Version'] == 'Keys'], 'Task Length Decimal', 'keys version', 'mins')
+    completed_ratio(df, 'Keys')
     print_stats_runtime(df[df['Version'] == 'Speech'], 'Task Length Decimal', 'speech version', 'mins')
+    completed_ratio(df, 'Speech')
 
     # Run t-test
     run_paired_ttest(task_times, 'Keys', 'Speech')
-
-    # Print completed task ratios
-    completed_ratio(df, 'Keys')
-    completed_ratio(df, 'Speech')
 
     # Plot
     plot_bar_chart(df)
@@ -177,15 +172,15 @@ def evaluate_runtime_metrics(df):
     Statistical analysis of the query runtimes.
     :param df: DataFrame, imported evaluation df
     """
-    print("#### EVALUATE QUERY TIMES: KEYS VS. SPEECH ####")
+    info = "#### EVALUATE QUERY TIMES: KEYS VS. SPEECH"
     # Preprocess data
     runtime_df = preprocess_data(df)
 
     # Create df grouped by task and version with mean and std
     grouped_df = create_evaluation_df(runtime_df, verbose=False)
 
-    print(f"\n\n")
-    print("#### EVALUATE QUERY TIMES: KEYS VS. SPEECH - OBJECT RECOGNITION ####")
+    print(f"\n")
+    print(f"{info} - OBJECT RECOGNITION ####")
     # Prepare object task t-test data
     object_df = prep_version_ttest_df(grouped_df, 'object')
 
@@ -195,8 +190,8 @@ def evaluate_runtime_metrics(df):
     # Run t-test - object
     run_paired_ttest(object_df, 'keys', 'speech')
 
-    print(f"\n\n")
-    print("#### EVALUATE QUERY TIMES: KEYS VS. SPEECH - COLOR RECOGNITION ####")
+    print(f"\n")
+    print(f"{info} - COLOR RECOGNITION ####")
     # Prepare color task t-test data
     color_df = prep_version_ttest_df(grouped_df, 'color')
 
@@ -213,7 +208,7 @@ def main():
 
     # Evaluate task times
     evaluate_task_times(task_times)
-    print(f"\n\n")
+
     # Load the evaluation data
     evaluation_df = import_data(r"utils/main_evaluation_accuracy.csv")
 
