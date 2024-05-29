@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib import cm
 from scipy.stats import ttest_rel
 from scipy.stats import ttest_1samp
 
@@ -128,13 +129,13 @@ def test_accuracy_significance_model(df, model):
     """
     Test for level of accuracy of the recognition model.
     :param df: DataFrame, processed input data
-
     :param model: str, name of the model to test
     """
     df_evaluation = compute_model_accuracy(df, model)
 
     print_stats_accuracy(df_evaluation, f'accuracy_{model}', f'{model} recognition model')
     run_model_ttest(df_evaluation, f'accuracy_{model}')
+    return df_evaluation
 
 
 def compare_task_accuracies_all_errors(df):
@@ -151,6 +152,7 @@ def compare_task_accuracies_all_errors(df):
     # Test for differences in accuracy between the two task versions
     analysis_df = test_accuracy_difference_tasks(df)
     plot_mean_accuracy_per_task(analysis_df, plot_title='Mean Accuracy by Task Version (All Erorrs)')
+
 
 def compare_task_accuracies_specific_errors(df):
     """
@@ -169,27 +171,6 @@ def compare_task_accuracies_specific_errors(df):
     # Test for differences in accuracy between the two task versions
     analysis_df = test_accuracy_difference_tasks(df)
     plot_mean_accuracy_per_task(analysis_df, plot_title='Mean Accuracy by Task Version (Specific Erorrs)')
-
-
-def plot_mean_accuracy_per_task(df, plot_title):
-    # Compute means and standard deviations
-    means = [df['keys'].mean(), df['speech'].mean()]
-    stds = [df['keys'].std(), df['speech'].std()]
-
-    fig, ax = plt.subplots(figsize=(8, 7))
-
-    bar_width = 0.75
-    labels = ['Keys', 'Speech']
-    colors = get_plot_colors_versions()
-
-    ax.bar(labels, means, yerr=stds, capsize=5, color=colors, width=bar_width)
-    ax.set_xlabel('Task Version')
-    ax.set_yticks(np.arange(0, 120, 20))
-    ax.set_xlim(-0.6, 1.6)
-    ax.set_ylabel('Mean Accuracy %')
-    fig.suptitle(plot_title)
-
-    plt.show()
 
 
 def evaluate_model_accuracy(df, model):
@@ -212,7 +193,9 @@ def evaluate_model_accuracy(df, model):
           f"\nError types: {', '.join([et.split('_')[1] for et in df[df['error']]['response'].unique()])}.")
 
     # Compute statistics for the accuracy of the model for differences in accuracy between the two versions
-    test_accuracy_significance_model(df, model)
+    df_model_evaluation = test_accuracy_significance_model(df, model)
+
+    return df_model_evaluation
 
 
 def evaluate_gesture_model_accuracy(df):
@@ -221,7 +204,8 @@ def evaluate_gesture_model_accuracy(df):
     Evaluate accuracy of the gesture recognition model.
     """
     print("#### EVALUATE MODEL: GESTURE RECOGNITION ####")
-    evaluate_model_accuracy(df=df, model='gesture')
+    df_model_evaluation = evaluate_model_accuracy(df=df, model='gesture')
+    return df_model_evaluation
 
 
 def evaluate_speech_model_accuracy(df):
@@ -230,7 +214,8 @@ def evaluate_speech_model_accuracy(df):
     Evaluate accuracy of the speech recognition model.
     """
     print("#### EVALUATE MODEL: SPEECH RECOGNITION ####")
-    evaluate_model_accuracy(df=df, model='speech')
+    df_model_evaluation = evaluate_model_accuracy(df=df, model='speech')
+    return df_model_evaluation
 
 
 def evaluate_object_model_accuracy(df):
@@ -239,7 +224,8 @@ def evaluate_object_model_accuracy(df):
     Evaluate accuracy of the object recognition model.
     """
     print("#### EVALUATE MODEL: OBJECT RECOGNITION ####")
-    evaluate_model_accuracy(df=df, model='object')
+    df_model_evaluation = evaluate_model_accuracy(df=df, model='object')
+    return df_model_evaluation
 
 
 def explore_dataset(df):
@@ -255,6 +241,10 @@ def explore_dataset(df):
         plot_bar_chart(df, metric)
 
 
+def get_plot_colors_versions():
+    return ['#1D2F6F', '#8390FA']
+
+
 def plot_bar_chart(df, y_metric):
     """
     Plot bar chart of  for task times data per participant and version.
@@ -264,6 +254,29 @@ def plot_bar_chart(df, y_metric):
     accuracy_eval_df = compute_tasks_accuracy(df)
     plot_df = accuracy_eval_df.reset_index().pivot(index='ID', columns='version', values=y_metric)
     accuracy_eval_barplot(plot_df, y_metric)
+
+
+def set_accuracy_eval_barplot_labels(ax, metric):
+    """
+    Set axis labels for accuracy evaluation barplot.
+    :param ax: Axes object, the plot axes
+    :param metric: str, the metric to set labels for
+    """
+    ax.set_xlabel('Participant')
+
+    if metric == 'errors':
+        ax.set_ylabel('Number of Errors')
+    elif metric == 'accuracy':
+        ax.set_ylabel('Accuracy Rate')
+    elif metric == 'queries':
+        ax.set_ylabel('Number of Queries')
+
+    if metric == 'errors':
+        ax.set_title("Errors in Bot's Responses")
+    elif metric == 'accuracy':
+        ax.set_title("Accuracy of Bot's Responses")
+    elif metric == 'queries':
+        ax.set_title('Number of Queries Needed to Finish Task')
 
 
 def accuracy_eval_barplot(df, y_metric):
@@ -294,31 +307,57 @@ def accuracy_eval_barplot(df, y_metric):
     plt.show()
 
 
-def get_plot_colors_versions():
-    return ['#1D2F6F', '#8390FA']
+def plot_mean_accuracy_per_task(df, plot_title):
+    # Compute means and standard deviations
+    means = [df['keys'].mean(), df['speech'].mean()]
+    stds = [df['keys'].std(), df['speech'].std()]
+
+    fig, ax = plt.subplots(figsize=(8, 7))
+
+    bar_width = 0.75
+    labels = ['Keys', 'Speech']
+    colors = get_plot_colors_versions()
+
+    ax.bar(labels, means, yerr=stds, capsize=5, color=colors, width=bar_width)
+    ax.set_xlabel('Task Version')
+    ax.set_yticks(np.arange(0, 120, 20))
+    ax.set_xlim(-0.6, 1.6)
+    ax.set_ylabel('Mean Accuracy %')
+    # fig.suptitle(plot_title)
+    ax.set_title(plot_title)
+
+    plt.show()
 
 
-def set_accuracy_eval_barplot_labels(ax, metric):
+def plot_models_accuracies(dfs_to_concat):
     """
-    Set axis labels for accuracy evaluation barplot.
-    :param ax: Axes object, the plot axes
-    :param metric: str, the metric to set labels for
+
     """
-    ax.set_xlabel('Participant')
+    df = pd.concat(dfs_to_concat, axis=1)
+    accuracy_cols = df.filter(regex='^accuracy').columns.tolist()
+    models = [acc.split('_')[1].capitalize() for acc in accuracy_cols]
 
-    if metric == 'errors':
-        ax.set_ylabel('Number of Errors')
-    elif metric == 'accuracy':
-        ax.set_ylabel('Accuracy Rate')
-    elif metric == 'queries':
-        ax.set_ylabel('Number of Queries')
+    fig, ax = plt.subplots(figsize=(9, 7))
+    bar_width = 0.35
+    colors = cm.get_cmap('Accent', len(models)).colors
 
-    if metric == 'errors':
-        ax.set_title("Errors in Bot's Responses")
-    elif metric == 'accuracy':
-        ax.set_title("Accuracy of Bot's Responses")
-    elif metric == 'queries':
-        ax.set_title('Number of Queries Needed to Finish Task')
+    # Create bars for each version and each participant
+    for i, acc in enumerate(accuracy_cols):
+        y_values = df[acc]
+        y_values_mean = y_values.mean()
+        y_values_std = y_values.std()
+        ax.bar(i/2, y_values_mean, yerr=y_values_std, width=bar_width, label=acc, color=colors[i])
+
+    # Adding labels, title, and legend
+    ax.set_xticks([i/2 for i, _ in enumerate(models)])
+    ax.set_xticklabels(labels=models)
+    ax.set_xlabel('Recognition Models')
+    ax.set_xlim(-0.3, 1.3)
+    ax.set_yticks(np.arange(0, 120, 20))
+    ax.set_ylabel('Mean Accuracy %')
+    ax.set_title('Accuracy of the Recognition Models')
+
+    plt.show()
 
 
 def main():
@@ -326,7 +365,7 @@ def main():
     df = accuracy_evaluation_df()
 
     # Perform general data inspection
-    # explore_dataset(df)
+    explore_dataset(df)
 
     # Run statistical analysis to compare the overall accuracy of the system in the two task versions
     print(f"\n\n")
@@ -338,15 +377,18 @@ def main():
 
     # Run analysis to inspect accuracy of gesture recognition model
     print(f"\n\n")
-    evaluate_gesture_model_accuracy(df)
+    df_gesture_model_eval = evaluate_gesture_model_accuracy(df)
 
     # Run analysis to inspect accuracy of speech recognition model
     print(f"\n\n")
-    evaluate_speech_model_accuracy(df)
+    df_speech_model_eval = evaluate_speech_model_accuracy(df)
 
     # Run analysis to inspect accuracy of object recognition model
     print(f"\n\n")
-    evaluate_object_model_accuracy(df)
+    df_object_model_eval = evaluate_object_model_accuracy(df)
+
+    # Display model evaluations results
+    plot_models_accuracies([df_gesture_model_eval, df_speech_model_eval, df_object_model_eval])
 
 
 if __name__ == "__main__":
