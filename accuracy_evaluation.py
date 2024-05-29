@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from scipy.stats import ttest_rel
 from scipy.stats import ttest_1samp
@@ -46,9 +47,7 @@ def compute_tasks_accuracy(df):
 
     df_evaluation = pd.concat([queries, errors, accuracy_ratio], axis=1)
     df_evaluation.fillna({'errors': 0, 'accuracy': 100}, inplace=True)
-    print(
-        f"{df_evaluation}"
-    )
+    print(f"{df_evaluation}")
 
     return df_evaluation
 
@@ -68,9 +67,7 @@ def compute_model_accuracy(df, model):
 
     df_evaluation = pd.concat([queries, errors, accuracy], axis=1)
     df_evaluation.fillna({f'errors_{model}': 0, f'accuracy_{model}': 100},inplace=True)
-    print(
-        f"{df_evaluation}"
-    )
+    print(f"{df_evaluation}")
 
     return df_evaluation
 
@@ -144,7 +141,7 @@ def compare_task_accuracies_all_errors(df):
     :param df: DataFrame, processed input data
     Compare accuracy of the two evaluation task versions.
     """
-    print("#### COMPARE TASK VERSIONS: SPEECH COMMANDS VS. KEYS PRESSES - CONSIDERING ALL POSSIBILE ERRORS ####")
+    print("#### COMPARE TASK VERSIONS: SPEECH COMMANDS VS. KEYS PRESSES - CONSIDER ALL POSSIBILE ERRORS ####")
 
     # Print relevant information
     print(f"\nTotal queries: {len(df)}"
@@ -159,7 +156,7 @@ def compare_task_accuracies_specific_errors(df):
     :param df: DataFrame, processed input data
     Compare accuracy of the two evaluation task versions, only considering error types specific to the tasks.
     """
-    print("#### COMPARE TASK VERSIONS: SPEECH COMMANDS VS. KEYS PRESSES - CONSIDERING ONLY TASK-SPECIFIC ERRORS ####")
+    print("#### COMPARE TASK VERSIONS: SPEECH COMMANDS VS. KEYS PRESSES - CONSIDER ONLY TASK-SPECIFIC ERRORS ####")
 
     # Filter error responses to those specific for the task versions
     df = df[~df['error'] | df['response'].isin(['error_speech', 'error_keys'])]
@@ -226,25 +223,79 @@ def explore_dataset(df):
     """
     ...
     :param df: DataFrame, processed input data
-    :return:
     """
-    print(df)
-    # Plotting
-    fig, ax = plt.subplots(2, 1, figsize=(10, 8))
+    # Define metrics contained into the df that are related to the accuracy evaluation
+    metrics = ['queries', 'errors', 'accuracy']
 
-    # Count of tasks
-    df['version'].value_counts().plot(kind='bar', color='skyblue', ax=ax[0])
-    ax[0].set_title('Total Queries')
-    ax[0].set_xlabel('Task')
-    ax[0].set_ylabel('Count')
+    # Barplots for each metric
+    for metric in metrics:
+        plot_bar_chart(df, metric)
 
-    # Proportion correct responses versus errors
-    df['error'].value_counts().plot(kind='pie', autopct='%1.1f%%', colors=['lightgreen', 'salmon'],
-                                    labels=['Correct Responses', 'Error'], ax=ax[1])
-    ax[1].set_title('Error Responses Distribution')
 
-    plt.tight_layout()
+def plot_bar_chart(df, y_metric):
+    """
+    Plot bar chart of  for task times data per participant and version.
+    :param df: DataFrame, processed input data
+    :param y_metric: str, column containing the metric to display on the y-axis
+    """
+    accuracy_eval_df = compute_tasks_accuracy(df)
+    plot_df = accuracy_eval_df.reset_index().pivot(index='ID', columns='version', values=y_metric)
+    accuracy_eval_barplot(plot_df, y_metric)
+
+
+def accuracy_eval_barplot(df, y_metric):
+    """
+    Create barplot for task times data per participant and version.
+    :param df: DataFrame, processed and ready for plotting
+    :param y_metric: str, column containing the metric to display on the y-axis
+    """
+    id = df.index.unique()
+    versions = df.columns.unique()
+    print(
+        f"{versions = }"
+    )
+    index = np.arange(len(id))
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    bar_width = 0.35
+    colors = ['#1D2F6F', '#8390FA']
+    # colors = ['#1c6f1c', '#83fa83']  # green shade
+
+    # Create bars for each version and each participant
+    for i, version in enumerate(versions):
+        y_values = df[f"{version}"]
+        ax.bar(index + i * bar_width, y_values, bar_width, label=version, color=colors[i])
+
+    # Adding labels, title, and legend
+    set_accuracy_eval_barplot_labels(ax=ax, metric=y_metric)
+    ax.set_xticks(index + bar_width / 2)
+    ax.set_xticklabels(id)
+    ax.legend(title='Version')
+
     plt.show()
+
+
+def set_accuracy_eval_barplot_labels(ax, metric):
+    """
+    Set axis labels for accuracy evaluation barplot.
+    :param ax: Axes object, the plot axes
+    :param metric: str, the metric to set labels for
+    """
+    ax.set_xlabel('Participant')
+
+    if metric == 'errors':
+        ax.set_ylabel('Number of Errors')
+    elif metric == 'accuracy':
+        ax.set_ylabel('Accuracy Rate')
+    elif metric == 'queries':
+        ax.set_ylabel('Number of Queries')
+
+    if metric == 'errors':
+        ax.set_title("Errors in Bot's Responses")
+    elif metric == 'accuracy':
+        ax.set_title("Accuracy of Bot's Responses")
+    elif metric == 'queries':
+        ax.set_title('Number of Queries Needed to Finish Task')
 
 
 def main():
