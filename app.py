@@ -59,21 +59,9 @@ class VuBot:
         # Constant sentence to trigger actions
         self.OD_POINTED_TRIGGERS = ["help object", "identify object", "object"]
         self.OD_ALL_OBJECTS_TRIGGERS = ["highlight items", "all items", "every item"]
-        self.POINTED_COLOR_TRIGGER = ["help color", "identify color", "color"]
+        self.POINTED_COLOR_TRIGGER = ["help color", "identify color", "color", "shade"]
         # Countdown time for when capturing all objects
         self.COUNTDOWN_TIME = 3  
-
-        if self.debug:
-            input("Start screen recording! (press 'y' when done) ")
-            # General parameters
-            self.participant_id = input("Participant ID:")
-            self.evaluation = {
-                "ID": [],
-                "version": [],
-                "timelog": [],
-                "task": [],
-                "response": []
-            }
 
 
     def start_speech_recognition(self):
@@ -121,6 +109,7 @@ class VuBot:
                                 print("Heard Trigger phrase for object detection...")
                                 # Sleep and reset text to avoid multiple triggers
                                 time.sleep(2)
+                                self.trigger_object_detection = False
                                 self.current_transcription = ""
 
                         # Trigger for all objects detection
@@ -131,6 +120,7 @@ class VuBot:
                                 print("Heard Trigger phrase for all objects detection...")
                                 # Sleep and reset text to avoid multiple triggers
                                 time.sleep(2)
+                                self.trigger_all_objects_detection = False
                                 self.current_transcription = ""
 
                         # Trigger for pointed color detection
@@ -141,6 +131,7 @@ class VuBot:
                                 print("Heard Trigger phrase for color detection...")
                                 # Sleep and reset text to avoid multiple triggers
                                 time.sleep(2)
+                                self.trigger_color_detection = False
                                 self.current_transcription = ""
 
         except Exception as e:
@@ -175,8 +166,8 @@ class VuBot:
                 self.finger_detected = False
                 self.victory_detected = False
 
+            # Note : not final, need to be updated
             elif gesture == 'Victory':
-                # TODO - victory
                 index_coordinates = (result.hand_landmarks[0][8].x, result.hand_landmarks[0][8].y)
                 middle_finger_coordinates = (result.hand_landmarks[0][12].x, result.hand_landmarks[0][12].y)
                 self.index_coordinates = (int(index_coordinates[0] * self.width), int(index_coordinates[1] * self.height))
@@ -213,8 +204,8 @@ class VuBot:
         if self.index_coordinates is not None:
             index_x, index_y = self.index_coordinates
         elif self.middle_finger_coordinates is not None:
-            # TODO - victory
-            index_x, index_y = self.middle_finger_coordinates
+            # Note : not final, need to be updated
+            index_x, index_y = self.index_coordinates
         else:
             return "No index finger coordinates available."
 
@@ -514,23 +505,8 @@ class VuBot:
                 self.last_pointed_object = None
                 self.last_pointed_color = None
                 print("Triggering object detection...")
-        
-                if self.debug:
-                    query_start = time.time()
-
                 self.check_point_within_objects(frame, frame_rgb)
-
-                if self.debug:
-                    query_end = time.time()
-                    query_duration = query_end - query_start
-                    self.evaluation["ID"].append(self.participant_id)
-                    self.evaluation["version"].append('speech')  # Different for alternate version to evaluate!
-                    self.evaluation["timelog"].append(query_duration)
-                    self.evaluation["task"].append('object')
-                    self.evaluation["response"].append(self.last_pointed_object)
-
-                # TODO - Delete if not evaluation version
-                time.sleep(2)
+                self.trigger_object_detection = False
 
 
             # Check if the condition for launching the color detection are met
@@ -540,23 +516,10 @@ class VuBot:
                 self.last_pointed_object = None
                 self.last_pointed_color = None
                 print("Triggering color detection...")
-
-                if self.debug:
-                    query_start = time.time()
-
                 self.check_point_within_objects(frame, frame_rgb, color_detection=True)
+                self.trigger_color_detection = False
 
-                if self.debug:
-                    query_end = time.time()
-                    query_duration = query_end - query_start
-                    self.evaluation["ID"].append(self.participant_id)
-                    self.evaluation["version"].append('speech')  # Different for alternate version to evaluate!
-                    self.evaluation["timelog"].append(query_duration)
-                    self.evaluation["task"].append('color')
-                    self.evaluation["response"].append(self.last_pointed_color)
 
-                # TODO - Delete if not evaluation version
-                time.sleep(2)
 
             # Check if the condition for launching the detection of all objects are met
             elif self.trigger_all_objects_detection and self.close_fist_detected:
@@ -575,26 +538,14 @@ class VuBot:
                 for box, label, score in bounding_boxes:
                     self.draw_box(frame, box, label, score)
 
+                self.trigger_all_objects_detection = False
+
 
             # Display the frame 
             cv2.imshow('Frame', frame)
 
-            # Reset the trigger flags if they were activated (to avoid multiple triggers)
-            self.trigger_all_objects_detection = False
-            self.trigger_object_detection = False
-            self.trigger_color_detection = False
-
-
             # Check for 'q' key press to exit the application
             if cv2.waitKey(1) & 0xFF == ord('q'):
-
-                if self.debug:
-                    print("Saving evaluation data...")
-                    # Save data for evaluation before leaving
-                    df_evaluation = pd.DataFrame.from_dict(self.evaluation)
-                    df_evaluation.to_csv(f"{self.participant_id}_{self.evaluation['version'][0]}.csv")  # save it as separate file
-                    df_evaluation.to_csv('./utils/main_evaluation.csv', mode='a', index=True, header=False) # append data to the main file
-
                 self.running = False  # Signal to stop the threads
                 break
 
@@ -608,5 +559,5 @@ class VuBot:
 
 
 # Run VuBot application
-app = VuBot("./utils/model/gesture_recognizer.task", debug=True)
+app = VuBot("./utils/model/gesture_recognizer.task", debug=False)
 app.run()
