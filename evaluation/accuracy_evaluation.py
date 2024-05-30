@@ -24,7 +24,7 @@ def add_error_column(df):
     return df['response'].apply(lambda x: x.startswith('error'))
 
 
-def accuracy_evaluation_df(path=r"utils/main_evaluation_accuracy.csv"):
+def accuracy_evaluation_df(path=r"main_evaluation_accuracy.csv"):
     """
     Load and preprocess the accuracy evaluation data.
     :param path: str, path to the CSV file of the data recorded during trials

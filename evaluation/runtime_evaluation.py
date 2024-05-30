@@ -66,7 +66,7 @@ def prep_version_ttest_df(df, verbose=True):
         print(f"\n{ttest_df}")
     return ttest_df
 
-def runtime_evaluation_df(path=r"utils/main_evaluation_accuracy.csv"):
+def runtime_evaluation_df(path=r"main_evaluation_accuracy.csv"):
     """
     Load and preprocess the runtime evaluation data.
     :param path: str, path to the CSV file of the data recorded during trials
@@ -191,13 +191,13 @@ def evaluate_runtime_metrics(df):
 
 def main():
     # Load the task times data
-    task_times = import_data(r"utils/MMUI_task_times.csv")
+    task_times = import_data(r"MMUI_task_times.csv")
 
     # Evaluate task times
     evaluate_task_times(task_times)
 
     # Load the evaluation data
-    evaluation_df = import_data(r"utils/main_evaluation_accuracy.csv")
+    evaluation_df = import_data(r"main_evaluation_accuracy.csv")
 
     # Evaluate query times
     evaluate_runtime_metrics(evaluation_df)
