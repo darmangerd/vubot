@@ -42,8 +42,8 @@ python app.py
 
 | Gesture            | Trigger Word      | Output                         |
 |--------------------|-------------------|--------------------------------|
-| Pointing / Victory | **'object'**      | Return object's name           |
-| Pointing / Victory | **'color'**       | Return object's color          |
+| Pointing | **'object'**      | Return object's name           |
+| Pointing | **'color'**       | Return object's color          |
 | Closed Fist        | **'every item'**  | Highlight all detected objects | 
 
 ## Project Structure
