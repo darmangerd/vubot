@@ -9,3 +9,6 @@ pandas==2.2.2
 openai-whisper 
 pyaudio
 timm
+matplotlib
+scipy
+numpy
