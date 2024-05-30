@@ -151,7 +151,7 @@ def compare_task_accuracies_all_errors(df):
 
     # Test for differences in accuracy between the two task versions
     analysis_df = test_accuracy_difference_tasks(df)
-    plot_mean_accuracy_per_task(analysis_df, plot_title='Mean Accuracy by Task Version (All Erorrs)')
+    plot_mean_accuracy_per_task(analysis_df, plot_title='Mean Accuracy by Task Version (All Errors)')
 
 
 def compare_task_accuracies_specific_errors(df):
@@ -170,7 +170,7 @@ def compare_task_accuracies_specific_errors(df):
 
     # Test for differences in accuracy between the two task versions
     analysis_df = test_accuracy_difference_tasks(df)
-    plot_mean_accuracy_per_task(analysis_df, plot_title='Mean Accuracy by Task Version (Specific Erorrs)')
+    plot_mean_accuracy_per_task(analysis_df, plot_title='Mean Accuracy by Task Version (Specific Errors)')
 
 
 def evaluate_model_accuracy(df, model):
@@ -242,7 +242,7 @@ def explore_dataset(df):
 
 
 def get_plot_colors_versions():
-    return ['#1D2F6F', '#8390FA']
+    return ['#299558', '#3E2F5B', '#E84427']
 
 
 def plot_bar_chart(df, y_metric):
@@ -339,7 +339,8 @@ def plot_models_accuracies(dfs_to_concat):
 
     fig, ax = plt.subplots(figsize=(9, 7))
     bar_width = 0.35
-    colors = cm.get_cmap('Accent', len(models)).colors
+    # colors = cm.get_cmap('Accent', len(models)).colors
+    colors = get_plot_colors_versions()
 
     # Create bars for each version and each participant
     for i, acc in enumerate(accuracy_cols):

@@ -125,7 +125,7 @@ def plot_bar_chart(df):
 
     fig, ax = plt.subplots(figsize=(10, 6))
 
-    colors = ['#1D2F6F', '#8390FA']
+    colors = ['#299558', '#3E2F5B']
 
     # Create bars for each version
     for i, version in enumerate(versions):
