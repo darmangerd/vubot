@@ -47,23 +47,21 @@ def create_evaluation_df(df, verbose=True):
     Creates stats DataFrame for evaluation.
     :param df: imported DataFrame
     :param verbose: prints a table with the mean and std of the query time per participant and version
-    :return: DataFrame, includes ID, task, version, mean, and std of the query time
+    :return: DataFrame, includes ID, task (color and object), mean, and std of the query time
     """
-    df = df.groupby(['ID','task','version'])
+    df = df.groupby(['ID','task'])
     summary = df['timelog'].agg(['mean', 'std']).reset_index()
     if verbose:
         print(summary)
     return summary
 
-def prep_version_ttest_df(df, task, verbose=True):
+def prep_version_ttest_df(df, verbose=True):
     """
     Prepares runtime data for t-test.
     :param df: evaluation DataFrame
-    :param task: str, task (either 'object' or 'color')
     :return: DataFrame, columns for each version with the mean runtime of each query per participant.
     """
-    df = df[df['task'] == task]
-    ttest_df = df.pivot(index='ID', columns='version', values='mean')
+    ttest_df = df.pivot(index='ID', columns='task', values='mean')
     if verbose:
         print(f"\n{ttest_df}")
     return ttest_df
@@ -173,7 +171,6 @@ def evaluate_runtime_metrics(df):
     Statistical analysis of the query runtimes.
     :param df: DataFrame, imported evaluation df
     """
-    info = "#### EVALUATE QUERY TIMES: KEYS VS. SPEECH"
     # Preprocess data
     runtime_df = preprocess_data(df)
 
@@ -181,29 +178,16 @@ def evaluate_runtime_metrics(df):
     grouped_df = create_evaluation_df(runtime_df, verbose=False)
 
     print(f"\n")
-    print(f"{info} - OBJECT RECOGNITION ####")
+    print(f"#### EVALUATE QUERY TIMES: COLOR VS. OBJECT ####")
     # Prepare object task t-test data
-    object_df = prep_version_ttest_df(grouped_df, 'object')
+    ttest_df = prep_version_ttest_df(grouped_df)
 
     # Print stats about object recognition
     print(f"\nStats: ")
-    print(object_df.describe())
+    print(ttest_df.describe())
 
     # Run t-test - object
-    run_paired_ttest(object_df, 'keys', 'speech')
-
-    print(f"\n")
-    print(f"{info} - COLOR RECOGNITION ####")
-    # Prepare color task t-test data
-    color_df = prep_version_ttest_df(grouped_df, 'color')
-
-    # Print stats about color recognition
-    print(f"\nStats:")
-    print(color_df.describe())
-
-    # Run t-test - color
-    run_paired_ttest(color_df, 'keys', 'speech')
-
+    run_paired_ttest(ttest_df, 'color', 'object')
 
 def main():
     # Load the task times data
