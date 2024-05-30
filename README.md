@@ -38,11 +38,18 @@ python app.py
 ```
 - Be sure to have a functional microphone and webcam connected to your computer.
 
+## Guide
+
+| Gesture            | Trigger Word      | Output                         |
+|--------------------|-------------------|--------------------------------|
+| Pointing / Victory | **'object'**      | Return object's name           |
+| Pointing / Victory | **'color'**       | Return object's color          |
+| Closed Fist        | **'every item'**  | Highlight all detected objects | 
 
 ## Project Structure
 - **app.py**: Main file to run the project.
-- **evaluation_keys.py**: File containing the keys alternative methode, used to evaluate the project.
-- **evaluation_speech.py**: File containing the speech alternative methode, used to evaluate the project.
+- **evaluation_keys.py**: File containing the alternative keys method, used to evaluate the project (object and color names are manipulated).
+- **evaluation_speech.py**: File containing the alternative speech method, used to evaluate the project (object and color names are manipulated).
 - **requirements.txt**: File containing the project dependencies.
 - **/images**: Folder containing the images saved for debugging purposes.
 - **/utils**: Folder containing the utility functions used in the project.
