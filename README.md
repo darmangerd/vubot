@@ -48,13 +48,16 @@ python app.py
 
 ## Project Structure
 - **app.py**: Main file to run the project.
-- **evaluation_keys.py**: File containing the alternative keys method, used to evaluate the project (object and color names are manipulated).
-- **evaluation_speech.py**: File containing the alternative speech method, used to evaluate the project (object and color names are manipulated).
+- **/evaluation**: Folder containing the material used for the evaluation phase of the project.
+  - **/evaluation/evaluation_keys.py**: File containing the alternative keys method, used to evaluate the project (object and color names are manipulated).
+  - **/evaluation/evaluation_speech.py**: File containing the alternative speech method, used to evaluate the project (object and color names are manipulated).
+  - **/evaluation/main_evaluation.csv**: File containing the evaluation data obtained during the evaluation trials.
+  - **/evaluation/accuracy_evaluation.py**: File containing the evaluation of the accuracy.
+  - **/evaluation/runtime_evaluation.py**: File containing the evaluation of the runtime.
 - **requirements.txt**: File containing the project dependencies.
 - **/images**: Folder containing the images saved for debugging purposes.
 - **/utils**: Folder containing the utility functions used in the project.
   - **/utils/models**: Folder containing the gesture recognition model used in the project (mediapipe).
-  - **/utils/main_evaluation.csv**: File containing the evaluation data for the project obtained during the evaluation phase.
 - **/docs**: Folder containing the project documentation.
 
 
