@@ -58,7 +58,7 @@ python app.py
 - **/images**: Folder containing the images saved for debugging purposes.
 - **/utils**: Folder containing the utility functions used in the project.
   - **/utils/models**: Folder containing the gesture recognition model used in the project (mediapipe).
-- **/docs**: Folder containing the project documentation.
+- **/docs**: Folder containing the project documentation. Includes the report and demo video.
 
 
 ## Future Work
